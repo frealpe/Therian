@@ -14,8 +14,6 @@ import {
     cilClock
 } from '@coreui/icons'
 import useIndex from '../hook/useIndex'
-import Mascot from '../components/Mascot'
-import mascotImage from '../assets/mascot.png'
 
 const Index = () => {
     const {
@@ -26,16 +24,6 @@ const Index = () => {
 
     return (
         <CContainer fluid className="px-2">
-            {/* Mascot Animation */}
-            <div className="d-flex justify-content-center mb-1">
-                <Mascot
-                    sprite={mascotImage}
-                    width={80}
-                    height={80}
-                    frames={1}
-                    duration={1}
-                />
-            </div>
             {/* Top stat cards */}
             <div className="row g-2 mb-2 mt-1">
                 <div className="col-md-6 col-xl-3">

@@ -4,25 +4,27 @@ import {
     Image, ActivityIndicator, Alert, Dimensions, ScrollView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Upload, User, ShieldCheck, Zap, Activity, Cpu } from 'lucide-react-native';
+import { Camera, Upload, User, ShieldCheck, Zap, Activity, Cpu, Gauge, Clock } from 'lucide-react-native';
 import useApp from '../hook/useApp';
-import useWebSocket from '../hook/useWebSocket';
+import { useWebSocket } from '../hook/useWebSocket';
 import { uploadAvatar } from '../service/api';
 
 const { width } = Dimensions.get('window');
+const DEFAULT_URL = 'ws://192.168.4.1/ws';
 
 const Home = () => {
     const { ToastMsgSuccess, ToastMsgError } = useApp();
-    const { status, sendMessage, lastMessage } = useWebSocket();
+    const { isConnected, telemetry, info, sendAnimation } = useWebSocket(DEFAULT_URL);
+
     const [image, setImage] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [deviceStats, setDeviceStats] = useState({ bat: '--', signal: '--' });
+    const [deviceStats, setDeviceStats] = useState({ bat: '--', signal: '--', free_heap: 0, heap_size: 1, uptime: 0 });
 
     useEffect(() => {
-        if (lastMessage && lastMessage.t === 'data') {
-            setDeviceStats(lastMessage.v);
+        if (telemetry) {
+            setDeviceStats(telemetry);
         }
-    }, [lastMessage]);
+    }, [telemetry]);
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -48,7 +50,7 @@ const Home = () => {
     };
 
     const triggerAnim = (type) => {
-        sendMessage('anim', type);
+        sendAnimation(type.toLowerCase());
     };
 
     return (
@@ -57,9 +59,10 @@ const Home = () => {
                 <ShieldCheck color="#00f2ff" size={32} />
                 <Text style={styles.title}>THERIAN AR</Text>
                 <View style={styles.statusBadge}>
-                    <View style={[styles.statusDot, { backgroundColor: status === 'connected' ? '#00ff88' : '#ff3300' }]} />
-                    <Text style={styles.statusText}>{status.toUpperCase()}</Text>
+                    <View style={[styles.statusDot, { backgroundColor: isConnected ? '#00ff88' : '#ff3300' }]} />
+                    <Text style={styles.statusText}>{isConnected ? 'CONNECTED' : 'OFFLINE'}</Text>
                 </View>
+                {info ? <Text style={styles.infoSmall}>{info}</Text> : null}
             </View>
 
             <View style={styles.statsRow}>
@@ -72,6 +75,19 @@ const Home = () => {
                     <Activity color="#00f2ff" size={16} />
                     <Text style={styles.statLabel}>SEÑAL</Text>
                     <Text style={styles.statValue}>{deviceStats.signal} dBm</Text>
+                </View>
+            </View>
+
+            <View style={styles.statsRow}>
+                <View style={styles.statCardSmall}>
+                    <Gauge color="#00f2ff" size={12} />
+                    <Text style={styles.statLabelSmall}>HEAP LIBRE</Text>
+                    <Text style={styles.statValueSmall}>{(deviceStats.free_heap / 1024).toFixed(1)} KB</Text>
+                </View>
+                <View style={styles.statCardSmall}>
+                    <Clock color="#00f2ff" size={12} />
+                    <Text style={styles.statLabelSmall}>UPTIME</Text>
+                    <Text style={styles.statValueSmall}>{(deviceStats.uptime / 60000).toFixed(1)} m</Text>
                 </View>
             </View>
 
@@ -89,8 +105,8 @@ const Home = () => {
             <View style={styles.realtimeSection}>
                 <Text style={styles.sectionTitle}>CENTRAL DE ANIMACIONES</Text>
                 <View style={styles.grid}>
-                    {['SALUDO', 'ALERTA', 'ESCANEANDO', 'DORMIR'].map((anim) => (
-                        <TouchableOpacity key={anim} style={styles.animButton} onPress={() => triggerAnim(anim.toLowerCase())}>
+                    {['IDLE', 'WALK', 'JUMP', 'HAPPY', 'ANGRY'].map((anim) => (
+                        <TouchableOpacity key={anim} style={styles.animButton} onPress={() => triggerAnim(anim)}>
                             <Text style={styles.animText}>{anim}</Text>
                         </TouchableOpacity>
                     ))}
@@ -151,11 +167,16 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         letterSpacing: 1,
     },
+    infoSmall: {
+        color: '#444',
+        fontSize: 9,
+        marginTop: 5,
+    },
     statsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         width: '100%',
-        marginBottom: 30,
+        marginBottom: 10,
     },
     statCard: {
         width: '47%',
@@ -166,10 +187,25 @@ const styles = StyleSheet.create({
         borderColor: '#111',
         alignItems: 'center',
     },
+    statCardSmall: {
+        width: '47%',
+        backgroundColor: '#080808',
+        padding: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#111',
+        alignItems: 'center',
+    },
     statLabel: {
         color: '#444',
         fontSize: 10,
         marginTop: 8,
+        fontWeight: 'bold',
+    },
+    statLabelSmall: {
+        color: '#333',
+        fontSize: 8,
+        marginTop: 4,
         fontWeight: 'bold',
     },
     statValue: {
@@ -178,9 +214,16 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 4,
     },
+    statValueSmall: {
+        color: '#bbb',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginTop: 2,
+    },
     avatarSection: {
         alignItems: 'center',
         marginBottom: 30,
+        marginTop: 20,
     },
     avatarContainer: {
         width: 220,
@@ -241,7 +284,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     animButton: {
-        width: '48%',
+        width: '31%',
         backgroundColor: '#111',
         paddingVertical: 15,
         borderRadius: 10,
@@ -253,7 +296,7 @@ const styles = StyleSheet.create({
     animText: {
         color: '#888',
         fontWeight: '700',
-        fontSize: 12,
+        fontSize: 10,
     },
     syncButton: {
         flexDirection: 'row',
