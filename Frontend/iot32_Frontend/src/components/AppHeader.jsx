@@ -26,7 +26,7 @@ const AppHeader = ({ sidebarShow, setSidebarShow }) => {
     }
 
     return (
-        <CHeader position="sticky" className="mb-4 p-0">
+        <CHeader position="sticky" className="mb-0 p-0">
             <CContainer fluid className="border-bottom px-4">
                 <CHeaderToggler
                     onClick={() => setSidebarShow(v => !v)}
