@@ -4,6 +4,7 @@ const Index = React.lazy(() => import('./views/Index'))
 const WiFi = React.lazy(() => import('./views/WiFi'))
 const Protocolo = React.lazy(() => import('./views/Protocolo'))
 const Settings = React.lazy(() => import('./views/Settings'))
+const Mascota = React.lazy(() => import('./views/Mascota'))
 const Page404 = React.lazy(() => import('./views/Page404'))
 
 const routes = [
@@ -29,6 +30,12 @@ const routes = [
         path: '/settings',
         name: 'Settings',
         element: Settings,
+        exact: true,
+    },
+    {
+        path: '/mascota',
+        name: 'Mascota',
+        element: Mascota,
         exact: true,
     },
     {

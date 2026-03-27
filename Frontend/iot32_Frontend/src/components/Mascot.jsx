@@ -18,7 +18,7 @@ const Mascot = ({ sprite, width = 64, height = 64, frames = 4, duration = 0.5 })
     height: `${height}px`,
     backgroundImage: `url(${sprite})`,
     backgroundSize: `${spriteWidth}px ${height}px`,
-    animation: `mascot-animation ${duration}s steps(${frames}) infinite`
+    animation: frames > 1 ? `mascot-animation ${duration}s steps(${frames}) infinite` : 'none'
   };
 
   return (

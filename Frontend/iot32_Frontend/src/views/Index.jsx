@@ -15,6 +15,7 @@ import {
 } from '@coreui/icons'
 import useIndex from '../hook/useIndex'
 import Mascot from '../components/Mascot'
+import mascotImage from '../assets/mascot.png'
 
 const Index = () => {
     const {
@@ -28,11 +29,11 @@ const Index = () => {
             {/* Mascot Animation */}
             <div className="d-flex justify-content-center mb-1">
                 <Mascot
-                    sprite="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif"
-                    width={64}
-                    height={64}
-                    frames={4}
-                    duration={0.8}
+                    sprite={mascotImage}
+                    width={80}
+                    height={80}
+                    frames={1}
+                    duration={1}
                 />
             </div>
             {/* Top stat cards */}

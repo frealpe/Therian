@@ -7,7 +7,8 @@ import {
     cilEthernet,
     cilSettings,
     cilReload,
-    cilAccountLogout
+    cilAccountLogout,
+    cilMoodGood
 } from '@coreui/icons'
 import { CNavItem, CNavTitle } from '@coreui/react'
 
@@ -17,6 +18,12 @@ const _nav = [
         name: 'Inicio',
         to: '/',
         icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon me-2" />,
+    },
+    {
+        component: CNavItem,
+        name: 'Mascota',
+        to: '/mascota',
+        icon: <CIcon icon={cilMoodGood} customClassName="nav-icon me-2" />,
     },
     {
         component: CNavTitle,

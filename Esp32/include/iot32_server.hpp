@@ -11,6 +11,7 @@
 bool cors = true;
 
 AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
 // -------------------------------------------------------------------
 // Zona API REST
 // -------------------------------------------------------------------
@@ -225,93 +226,6 @@ void putRequestCloudConnection(AsyncWebServerRequest *request, uint8_t *data,
     strlcpy(mqtt_topic_subscribe, "cat1/acb/down/imei",
             sizeof(mqtt_topic_subscribe));
   }
-  //  -------------------------------------------------------------------
-  //  HTTP Conexión settings.json
-  //  -------------------------------------------------------------------
-  JsonObject http_connection = doc["data"]["http_connection"];
-  // HTTP Cloud Enable
-  http_cloud_enable = http_connection["http_cloud_enable"].as<bool>();
-  // HTTP Server
-  if (http_connection["http_server"] != "") {
-    s = http_connection["http_server"].as<String>();
-    s.trim();
-    strlcpy(http_server, s.c_str(), sizeof(http_server));
-    s = "";
-  }
-  // HTTP Port
-  if (http_connection["http_port"] != "") {
-    http_port = http_connection["http_port"].as<int>();
-  }
-  // HTTP Path
-  if (http_connection["http_path"] != "") {
-    s = http_connection["http_path"].as<String>();
-    s.trim();
-    strlcpy(http_path, s.c_str(), sizeof(http_path));
-    s = "";
-  }
-  // HTTP User Name
-  if (http_connection["http_user_name"] != "") {
-    s = http_connection["http_user_name"].as<String>();
-    s.trim();
-    strlcpy(http_user_name, s.c_str(), sizeof(http_user_name));
-    s = "";
-  }
-  // HTTP Password
-  if (http_connection["http_password"] != "") {
-    s = http_connection["http_password"].as<String>();
-    s.trim();
-    strlcpy(http_password, s.c_str(), sizeof(http_password));
-    s = "";
-  }
-  // Rutas Específicas
-  if (http_connection["http_auth_path"] != "") {
-    s = http_connection["http_auth_path"].as<String>();
-    s.trim();
-    strlcpy(http_auth_path, s.c_str(), sizeof(http_auth_path));
-    s = "";
-  }
-  if (http_connection["http_register_path"] != "") {
-    s = http_connection["http_register_path"].as<String>();
-    s.trim();
-    strlcpy(http_register_path, s.c_str(), sizeof(http_register_path));
-    s = "";
-  }
-  if (http_connection["http_save_index_path"] != "") {
-    s = http_connection["http_save_index_path"].as<String>();
-    s.trim();
-    strlcpy(http_save_index_path, s.c_str(), sizeof(http_save_index_path));
-    s = "";
-  }
-  if (http_connection["http_save_alarm_path"] != "") {
-    s = http_connection["http_save_alarm_path"].as<String>();
-    s.trim();
-    strlcpy(http_save_alarm_path, s.c_str(), sizeof(http_save_alarm_path));
-    s = "";
-  }
-  if (http_connection["http_save_batch_path"] != "") {
-    s = http_connection["http_save_batch_path"].as<String>();
-    s.trim();
-    strlcpy(http_save_batch_path, s.c_str(), sizeof(http_save_batch_path));
-    s = "";
-  }
-  if (http_connection["http_get_index_path"] != "") {
-    s = http_connection["http_get_index_path"].as<String>();
-    s.trim();
-    strlcpy(http_get_index_path, s.c_str(), sizeof(http_get_index_path));
-    s = "";
-  }
-  if (http_connection["http_get_meters_path"] != "") {
-    s = http_connection["http_get_meters_path"].as<String>();
-    s.trim();
-    strlcpy(http_get_meters_path, s.c_str(), sizeof(http_get_meters_path));
-    s = "";
-  }
-  if (http_connection["http_encrypt_test_path"] != "") {
-    s = http_connection["http_encrypt_test_path"].as<String>();
-    s.trim();
-    strlcpy(http_encrypt_test_path, s.c_str(), sizeof(http_encrypt_test_path));
-    s = "";
-  }
   // Save Settings.json
   if (settingsSave()) {
     request->send(200, dataType, "{ \"save\": true }");
@@ -362,38 +276,6 @@ void putRequestCloudData(AsyncWebServerRequest *request, uint8_t *data,
   } else {
     strlcpy(mqtt_custom_message, "", sizeof(mqtt_custom_message));
   }
-  //  -------------------------------------------------------------------
-  //  HTTP Datos settings.json
-  //  -------------------------------------------------------------------
-  JsonObject http_datos = doc["data"]["http_datos"];
-  // HTTP Send Time Data
-  http_time_send = http_datos["http_time_send"].as<bool>();
-  // HTTP Time unit
-  if (http_datos["http_time_unit"] != "") {
-    http_time_unit = http_datos["http_time_unit"].as<int>();
-    if (http_time_unit <= 0)
-      http_time_unit = 1;
-  }
-  // HTTP Time interval
-  if (http_datos["http_time_interval"] != "") {
-    http_time_interval =
-        http_datos["http_time_interval"].as<int>() * http_time_unit * 1000;
-  }
-  // HTTP Send Status
-  http_status_send = http_datos["http_status_send"].as<bool>();
-  // HTTP Encryption Key and IV
-  if (http_datos["http_encrypt_key"] != "") {
-    s = http_datos["http_encrypt_key"].as<String>();
-    s.trim();
-    strlcpy(http_encrypt_key, s.c_str(), sizeof(http_encrypt_key));
-    s = "";
-  }
-  if (http_datos["http_encrypt_iv"] != "") {
-    s = http_datos["http_encrypt_iv"].as<String>();
-    s.trim();
-    strlcpy(http_encrypt_iv, s.c_str(), sizeof(http_encrypt_iv));
-    s = "";
-  }
   // Save Settings.json
   if (settingsSave()) {
     request->send(200, dataType, "{ \"save\": true }");
@@ -437,168 +319,6 @@ void putRequestDeviceID(AsyncWebServerRequest *request, uint8_t *data,
                   "Device ID vacío ni repetido!\"}");
     return;
   }
-}
-// -------------------------------------------------------------------
-// Método PUT WWW Usuario y Contraseña
-// -------------------------------------------------------------------
-void putRequestUser(AsyncWebServerRequest *request, uint8_t *data, size_t len,
-                    size_t index, size_t total) {
-  /* if(!request->authenticate(device_old_user, device_old_password))
-      return request->requestAuthentication();  */
-  const char *dataType = "application/json";
-  String bodyContent = GetBodyContent(data, len);
-  StaticJsonDocument<384> doc;
-  DeserializationError error = deserializeJson(doc, bodyContent);
-  if (error) {
-    request->send(400, dataType, "{ \"status\": \"Error de JSON enviado\" }");
-    return;
-  };
-  // -------------------------------------------------------------------
-  // WWW Usuario y Contraseña settings.json
-  // -------------------------------------------------------------------
-  String u, p, nu, np, cp;
-  // capturamos las variables enviadas en el JSON
-  u = doc["device_old_user"].as<String>();      // Usuario Actual
-  p = doc["device_old_password"].as<String>();  // Contraseña Actual
-  nu = doc["device_new_user"].as<String>();     // Nuevo Usuario
-  np = doc["device_new_password"].as<String>(); // Nueva Contraseña
-  cp = doc["device_c_new_password"]
-           .as<String>(); // Confirmación de nueva Contraseña
-  // Limpiamos de espacios vacios
-  u.trim();
-  p.trim();
-  nu.trim();
-  np.trim();
-  cp.trim();
-  // Validar que los datos del usario y contraseña anteriores no esten en blanco
-  if (u != "" && p != "") {
-    // validar que el usuario y contraseña coincidan con los anteriores
-    if (u == device_old_user && p == device_old_password) {
-      // Guardamos solo el Nuevo Usuario
-      if (nu != "" && np == "" && cp == "") {
-        // Validar que el usuario nuevo sea diferente al antiguo
-        if (nu == device_old_user) {
-          request->send(400, dataType,
-                        "{ \"save\": false, \"msg\": \"¡Error, El nuevo "
-                        "usuario no puede ser igual al anterior!\"}");
-          return;
-        }
-        // Nuevo Usuario en la Variable
-        strlcpy(device_old_user, nu.c_str(), sizeof(device_old_user));
-        // Guardar settings.json
-        if (settingsSave()) {
-          request->send(200, dataType,
-                        "{ \"save\": true, \"msg\": \"¡Usuario actualizado "
-                        "correctamente!\" }");
-        } else {
-          request->send(500, dataType, "{ \"save\": false }");
-        }
-      } else if (nu == "" && np == "" && cp == "") {
-        request->send(400, dataType,
-                      "{ \"save\": false, \"msg\": \"¡Error, No se permite "
-                      "nuevo usuario, nueva contraseña y confirmación de nueva "
-                      "contraseña vacíos!\"}");
-        return;
-        // Guardar solo la nueva contraseña
-      } else if (np != "" && cp != "" && np == cp && nu == "") {
-        // Validar que la contraseña nueva sea diferente a la antigua
-        if (np == device_old_password) {
-          request->send(400, dataType,
-                        "{ \"save\": false, \"msg\": \"¡Error, La contraseña "
-                        "nueva no puede ser igual a la anterior!\"}");
-          return;
-        }
-        // Nueva Contraseña en la Variable
-        strlcpy(device_old_password, np.c_str(), sizeof(device_old_password));
-        // Guardar settings.json
-        if (settingsSave()) {
-          request->send(200, dataType,
-                        "{ \"save\": true, \"msg\": \"¡Contraseña actualizada "
-                        "correctamente!\" }");
-        } else {
-          request->send(500, dataType, "{ \"save\": false }");
-        }
-        // Validar la nueva contraseña y confirmación
-      } else if (np != cp) {
-        request->send(
-            400, dataType,
-            "{ \"save\": false, \"msg\": \"¡Error, La nueva contraseña y "
-            "confirmación de nueva contraseña no coinciden!\"}");
-        return;
-        // Guardo Usuario y Contraseña nuevos
-      } else if (nu != "" && np != "" && cp != "" && np == cp) {
-        // Validar que el usuario nuevo y la contraseña nueva sea diferente a
-        // los antiguos
-        if (np == device_old_password && nu == device_old_user) {
-          request->send(
-              400, dataType,
-              "{ \"save\": false, \"msg\": \"¡Error, La nueva contraseña y el "
-              "nuevo usuario no puede ser iguales a los anteriores!\"}");
-          return;
-        }
-        // Nuevo Usuario en la Variable
-        strlcpy(device_old_user, nu.c_str(), sizeof(device_old_user));
-        // Nueva Contraseña en la Variable
-        strlcpy(device_old_password, np.c_str(), sizeof(device_old_password));
-        // Guardar settings.json
-        if (settingsSave()) {
-          request->send(200, dataType,
-                        "{ \"save\": true, \"msg\": \"¡Usuario y Contraseña "
-                        "actualizados correctamente!\" }");
-        } else {
-          request->send(500, dataType, "{ \"save\": false }");
-        }
-      }
-    } else {
-      AsyncWebServerResponse *response = request->beginResponse(
-          400, dataType,
-          "{ \"save\": false, \"msg\": \"¡Error, No se pudo Guardar, Usuario y "
-          "Contraseña anterior no coinciden!\"}");
-      request->send(response);
-      return;
-    }
-  } else {
-    request->send(400, dataType,
-                  "{ \"save\": false, \"msg\": \"¡Error, No se permite usuario "
-                  "y contraseña anterior vacíos!\"}");
-    return;
-  }
-}
-// -------------------------------------------------------------------
-// Método POST Login
-// -------------------------------------------------------------------
-void postRequestLogin(AsyncWebServerRequest *request, uint8_t *data, size_t len,
-                      size_t index, size_t total) {
-  const char *dataType = "application/json";
-  String bodyContent = GetBodyContent(data, len);
-  StaticJsonDocument<128> doc;
-  DeserializationError error = deserializeJson(doc, bodyContent);
-  if (error) {
-    request->send(400, dataType, "{ \"status\": \"Error de JSON enviado\" }");
-    return;
-  };
-  String u = doc["correo"].as<String>();
-  String p = doc["password"].as<String>();
-  u.trim();
-  p.trim();
-
-  if (u == device_old_user && p == device_old_password) {
-    request->send(200, dataType,
-                  "{ \"login\": true, \"msg\": \"Bienvenido\" }");
-  } else {
-    request->send(401, dataType,
-                  "{ \"login\": false, \"msg\": \"Usuario o contraseña "
-                  "incorrectos\" }");
-  }
-}
-// -------------------------------------------------------------------
-// Método DELETE Logout
-// -------------------------------------------------------------------
-void deleteRequestLogout(AsyncWebServerRequest *request) {
-  const char *dataType = "application/json";
-  request->send(200, dataType,
-                "{ \"session\": false, \"msg\": \"Sesión cerrada "
-                "correctamente\" }");
 }
 // -------------------------------------------------------------------
 // Método POST carga del archivo Settings.json OK // Otros
@@ -702,6 +422,83 @@ void handleDoFirmware(AsyncWebServerRequest *request, const String &filename,
       ESP.restart();
     }
   }
+}
+
+// -------------------------------------------------------------------
+// Método POST para la carga del Avatar desde la App Móvil
+// -------------------------------------------------------------------
+void handleAvatarUpload(AsyncWebServerRequest *request, String filename,
+                        size_t index, uint8_t *data, size_t len, bool final) {
+  const char *dataType = "application/json";
+  if (!index) {
+    log("[ INFO ] Avatar Upload Start");
+    // Siempre lo guardamos como /avatar.bin para simplificar el renderizado
+    file = SPIFFS.open("/avatar.bin", FILE_WRITE);
+    if (!file) {
+      log("[ ERROR ] No se pudo abrir /avatar.bin para escribir");
+      request->send(500, dataType, "{ \"save\": false }");
+      return;
+    }
+  }
+  if (file.write(data, len) != len) {
+    log("[ ERROR ] No se pudo escribir el Avatar");
+    request->send(500, dataType, "{ \"save\": false }");
+    return;
+  }
+  if (final) {
+    file.close();
+    log("[ INFO ] Avatar Upload Complete");
+    request->send(200, dataType, "{ \"save\": true }");
+  }
+}
+
+// -------------------------------------------------------------------
+// Manejo de Eventos WebSocket
+// -------------------------------------------------------------------
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+               AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_CONNECT) {
+    log("[ WS ] Cliente conectado ID: " + String(client->id()));
+    client->text("{\"t\":\"info\",\"v\":\"Conectado al ESP32 AR Bridge\"}");
+  } else if (type == WS_EVT_DISCONNECT) {
+    log("[ WS ] Cliente desconectado");
+  } else if (type == WS_EVT_DATA) {
+    AwsFrameInfo *info = (AwsFrameInfo *)arg;
+    if (info->final && info->index == 0 && info->len == len &&
+        info->opcode == WS_TEXT) {
+      data[len] = 0;
+      String message = (char *)data;
+      log("[ WS ] Mensaje recibido: " + message);
+
+      StaticJsonDocument<512> doc;
+      DeserializationError error = deserializeJson(doc, message);
+      if (error)
+        return;
+
+      String type = doc["t"];
+      if (type == "anim") {
+        String anim_type = doc["v"];
+        log("[ WS ] Trigger animación: " + anim_type);
+        // Aquí llamaríamos a funciones de lv_mascot.hpp para cambiar la
+        // animación
+      }
+    }
+  }
+}
+
+// -------------------------------------------------------------------
+// Enviar estados del sistema por WebSocket
+// -------------------------------------------------------------------
+void broadcastSystemStatus() {
+  StaticJsonDocument<128> doc;
+  doc["t"] = "data";
+  JsonObject v = doc.createNestedObject("v");
+  v["bat"] = map(analogRead(34), 0, 4095, 0, 100);
+  v["signal"] = WiFi.RSSI();
+
+  String output;
+  serializeJson(doc, output);
+  ws.textAll(output);
 }
 
 void InitServer() {
@@ -940,18 +737,6 @@ void InitServer() {
     request->send(200, dataType, json);
   });
   // -------------------------------------------------------------------
-  // Prueba de Conexión HTTP
-  // url: /api/cloud/test-http
-  // Método: POST
-  // -------------------------------------------------------------------
-  server.on("/api/cloud/test-http", HTTP_POST,
-            [](AsyncWebServerRequest *request) {
-              /* if(!request->authenticate(device_old_user,
-                 device_old_password)) return request->requestAuthentication();
-               */
-              request->send(200, "application/json", http_get_token());
-            });
-  // -------------------------------------------------------------------
   // Publicar mensaje MQTT desde UI
   // url: /api/mqtt/publish
   // Método: POST
@@ -973,9 +758,9 @@ void InitServer() {
         String message = doc["message"].as<String>();
 
         if (!mqttClient.connected()) {
-          request->send(
-              400, "application/json",
-              "{\"ok\":false,\"error\":\"El broker MQTT está desconectado\"}");
+          request->send(400, "application/json",
+                        "{\"ok\":false,\"error\":\"El broker MQTT está "
+                        "desconectado\"}");
           return;
         }
 
@@ -987,31 +772,6 @@ void InitServer() {
                         "{\"ok\":false,\"error\":\"El broker rechazó el "
                         "mensaje (buffer lleno o topic invalido)\"}");
         }
-      });
-  // -------------------------------------------------------------------
-  // Prueba de Endpoint Específico
-  // -------------------------------------------------------------------
-  server.on(
-      "/api/cloud/test-endpoint", HTTP_POST,
-      [](AsyncWebServerRequest *request) {}, NULL,
-      [](AsyncWebServerRequest *request, uint8_t *data, size_t len,
-         size_t index, size_t total) {
-        String body = GetBodyContent(data, len);
-        StaticJsonDocument<512> doc;
-        DeserializationError error = deserializeJson(doc, body);
-        if (error) {
-          request->send(400, "application/json",
-                        "{\"status\":\"Error JSON\",\"code\":0}");
-          return;
-        }
-        String path = doc["path"].as<String>();
-        String method = doc["method"].as<String>();
-        String value = doc["value"].as<String>();
-
-        log("[ HTTP ] Iniciando Prueba Manual para: " + path + " (" + method +
-            ") - Valor: " + value);
-        request->send(200, "application/json",
-                      http_manual_dispatcher(path, method, value));
       });
   // -------------------------------------------------------------------
   // Parámetros de Configuración Cloud
@@ -1049,42 +809,8 @@ void InitServer() {
                      : json += ",\"mqtt_status_send\": false";
     json += ",\"mqtt_custom_message\": \"" + String(mqtt_custom_message) + "\"";
     json += "}";
-    json += ",";
-    json += "\"http_connection\": {";
-    http_cloud_enable ? json += "\"http_cloud_enable\": true"
-                      : json += "\"http_cloud_enable\": false";
-    json += ",\"http_server\": \"" + String(http_server) + "\"";
-    json += ",\"http_port\":" + String(http_port);
-    json += ",\"http_path\": \"" + String(http_path) + "\"";
-    json += ",\"http_user_name\": \"" + String(http_user_name) + "\"";
-    json += ",\"http_password\": \"\"";
-    json += ",\"http_auth_path\": \"" + String(http_auth_path) + "\"";
-    json += ",\"http_register_path\": \"" + String(http_register_path) + "\"";
-    json +=
-        ",\"http_save_index_path\": \"" + String(http_save_index_path) + "\"";
-    json +=
-        ",\"http_save_alarm_path\": \"" + String(http_save_alarm_path) + "\"";
-    json +=
-        ",\"http_save_batch_path\": \"" + String(http_save_batch_path) + "\"";
-    json += ",\"http_get_index_path\": \"" + String(http_get_index_path) + "\"";
-    json +=
-        ",\"http_get_meters_path\": \"" + String(http_get_meters_path) + "\"";
-    json += ",\"http_encrypt_test_path\": \"" + String(http_encrypt_test_path) +
-            "\"";
-    json += "},";
-    json += "\"http_datos\": {";
-    http_time_send ? json += "\"http_time_send\": true"
-                   : json += "\"http_time_send\": false";
-    int h_unit = http_time_unit > 0 ? http_time_unit : 1;
-    json += ",\"http_time_unit\":" + String(h_unit);
-    json += ",\"http_time_interval\":" +
-            String(http_time_interval / (h_unit * 1000));
-    http_status_send ? json += ",\"http_status_send\": true"
-                     : json += ",\"http_status_send\": false";
-    json += ",\"http_encrypt_key\": \"" + String(http_encrypt_key) + "\"";
-    json += ",\"http_encrypt_iv\": \"" + String(http_encrypt_iv) + "\"";
     json += "}";
-    json += "},";
+    json += ",";
     json += "\"code\": 1 ";
     json += "}";
     request->send(200, dataType, json);
@@ -1135,13 +861,6 @@ void InitServer() {
       "/api/settings/id", HTTP_POST | HTTP_PUT,
       [](AsyncWebServerRequest *request) {}, NULL, putRequestDeviceID);
   // -------------------------------------------------------------------
-  // Actualizar las configuraciones del WWW Usuario y Contraseña
-  // url: /api/settings/user
-  // Método: PUT
-  // -------------------------------------------------------------------
-  server.on(
-      "/api/settings/user", HTTP_PUT, [](AsyncWebServerRequest *request) {},
-      NULL, putRequestUser);
   // -------------------------------------------------------------------
   // Manejo de la descarga del Archivo setting.json
   // url: "/api/settings/download"
@@ -1182,39 +901,22 @@ void InitServer() {
         handleDoFirmware(request, filename, index, data, len, final);
       });
   // -------------------------------------------------------------------
-  // Petición de Login
-  // url: "/api/perfil/login"
+  // Manejo de la carga del Avatar desde la App Móvil
+  // url: /api/avatar
   // Método: POST
   // -------------------------------------------------------------------
-  // Login API (Sincronizado con el frontend)
   server.on(
-      "/api/auth/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL,
-      postRequestLogin);
-  // Alias para compatibilidad anterior
-  server.on(
-      "/api/perfil/login", HTTP_POST, [](AsyncWebServerRequest *request) {},
-      NULL, postRequestLogin);
+      "/api/avatar", HTTP_POST, [](AsyncWebServerRequest *request) {},
+      [](AsyncWebServerRequest *request, const String &filename, size_t index,
+         uint8_t *data, size_t len, bool final) {
+        handleAvatarUpload(request, filename, index, data, len, final);
+      });
+
   // -------------------------------------------------------------------
-  // Petición de salir del Servidor
-  // url: "/api/perfil/logout"
-  // Método: DELETE
+  // Configuración de WebSocket
   // -------------------------------------------------------------------
-  // Logout API (Sincronizado con el frontend)
-  server.on("/api/auth/logout", HTTP_DELETE, deleteRequestLogout);
-  // Alias para compatibilidad anterior
-  server.on("/api/perfil/logout", HTTP_DELETE, deleteRequestLogout);
-  // -------------------------------------------------------------------
-  // Manejo del Error 404 página no encontrada
-  // url: "desconocido"
-  // -------------------------------------------------------------------
-  server.onNotFound([](AsyncWebServerRequest *request) {
-    /* if(!request->authenticate(device_old_user, device_old_password))
-        return request->requestAuthentication(); */
-    request->send(
-        404, "application/json",
-        "{ \"status\": 404, \"msg\": \"Error 404, página no encontrada\"}");
-    return;
-  });
+  ws.onEvent(onWsEvent);
+  server.addHandler(&ws);
 
   server.onNotFound([](AsyncWebServerRequest *request) {
     if (request->method() == HTTP_OPTIONS) {

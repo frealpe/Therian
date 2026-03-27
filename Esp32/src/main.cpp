@@ -12,7 +12,6 @@
 // -------------------------------------------------------------------
 #include "iot32_functions.hpp"
 #include "iot32_header.hpp"
-#include "iot32_http.hpp"
 #include "iot32_mqtt.hpp"
 #include "iot32_server.hpp"
 #include "iot32_settings.hpp"
@@ -105,10 +104,11 @@ void setup() {
   disp_drv.draw_buf = &draw_buf;
   lv_disp_drv_register(&disp_drv);
 
-  /* Crear la Mascota */
-  // Nota: mascot_sprite_sheet debe estar definida.
-  // Por ahora usaremos un símbolo externo como ejemplo.
-  lv_mascot_create(lv_scr_act(), &mascot_sprite_sheet, 64, 64, 4);
+  /* Crear la Mascota o Avatar */
+  if (lv_avatar_create(lv_scr_act()) == NULL) {
+    // Si no hay avatar, mostramos la mascota animada
+    lv_mascot_create(lv_scr_act(), &mascot_sprite_sheet, 64, 64, 4);
+  }
 
   log("[ INFO ] Setup completado");
 }
@@ -118,6 +118,16 @@ void setup() {
 void loop() {
   /* LVGL Timer Handler */
   lv_timer_handler();
+
+  /* WebSocket Cleanup */
+  ws.cleanupClients();
+
+  /* Periodic System Status Broadcast (every 5 seconds) */
+  static unsigned long lastWsBroadcast = 0;
+  if (millis() - lastWsBroadcast > 5000) {
+    lastWsBroadcast = millis();
+    broadcastSystemStatus();
+  }
 
   // -----------------------------------------------------------------
   // WIFI

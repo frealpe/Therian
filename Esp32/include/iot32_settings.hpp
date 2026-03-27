@@ -114,50 +114,6 @@ boolean settingsRead() {
       strlen(val) > 0)
     strlcpy(mqtt_custom_message, val, sizeof(mqtt_custom_message));
 
-  // --- HTTP ---
-  if (jsonSettings.containsKey("http_cloud_enable"))
-    http_cloud_enable = jsonSettings["http_cloud_enable"];
-  if ((val = jsonSettings["http_server"]))
-    strlcpy(http_server, val, sizeof(http_server));
-  if (jsonSettings.containsKey("http_port"))
-    http_port = jsonSettings["http_port"];
-  if ((val = jsonSettings["http_path"]))
-    strlcpy(http_path, val, sizeof(http_path));
-  if ((val = jsonSettings["http_user_name"]))
-    strlcpy(http_user_name, val, sizeof(http_user_name));
-  if ((val = jsonSettings["http_password"]))
-    strlcpy(http_password, val, sizeof(http_password));
-  if (jsonSettings.containsKey("http_time_send"))
-    http_time_send = jsonSettings["http_time_send"];
-  if (jsonSettings.containsKey("http_time_interval"))
-    http_time_interval = jsonSettings["http_time_interval"];
-  if (jsonSettings.containsKey("http_time_unit"))
-    http_time_unit = jsonSettings["http_time_unit"];
-  if (jsonSettings.containsKey("http_status_send"))
-    http_status_send = jsonSettings["http_status_send"];
-
-  // --- Rutas y Cifrado ---
-  if ((val = jsonSettings["http_auth_path"]))
-    strlcpy(http_auth_path, val, sizeof(http_auth_path));
-  if ((val = jsonSettings["http_register_path"]))
-    strlcpy(http_register_path, val, sizeof(http_register_path));
-  if ((val = jsonSettings["http_save_index_path"]))
-    strlcpy(http_save_index_path, val, sizeof(http_save_index_path));
-  if ((val = jsonSettings["http_save_alarm_path"]))
-    strlcpy(http_save_alarm_path, val, sizeof(http_save_alarm_path));
-  if ((val = jsonSettings["http_save_batch_path"]))
-    strlcpy(http_save_batch_path, val, sizeof(http_save_batch_path));
-  if ((val = jsonSettings["http_get_index_path"]))
-    strlcpy(http_get_index_path, val, sizeof(http_get_index_path));
-  if ((val = jsonSettings["http_get_meters_path"]))
-    strlcpy(http_get_meters_path, val, sizeof(http_get_meters_path));
-  if ((val = jsonSettings["http_encrypt_test_path"]))
-    strlcpy(http_encrypt_test_path, val, sizeof(http_encrypt_test_path));
-  if ((val = jsonSettings["http_encrypt_key"]))
-    strlcpy(http_encrypt_key, val, sizeof(http_encrypt_key));
-  if ((val = jsonSettings["http_encrypt_iv"]))
-    strlcpy(http_encrypt_iv, val, sizeof(http_encrypt_iv));
-
   log("[ INFO ] Lectura de las configuraciones correcta");
   return true;
 }
@@ -215,41 +171,6 @@ void settingsReset() {
   strlcpy(mqtt_topic_subscribe, "cat1/acb/down/imei",
           sizeof(mqtt_topic_subscribe));
   strlcpy(mqtt_custom_message, "", sizeof(mqtt_custom_message));
-  // -------------------------------------------------------------------
-  // HTTP settings.json
-  // -------------------------------------------------------------------
-  http_cloud_enable = false;
-  strlcpy(http_server, "wsp.acueducto.com.co", sizeof(http_server));
-  http_port = 443;
-  strlcpy(http_path, "/miatelemetryapitest", sizeof(http_path));
-  strlcpy(http_user_name, "cofemetrex", sizeof(http_user_name));
-  strlcpy(http_password, "jUr#BT3^2Pu#lHsAl$qU", sizeof(http_password));
-  http_time_send = true;
-  http_time_interval = 30000;
-  http_time_unit = 1;
-  http_status_send = true;
-
-  // Rutas por defecto proporcionadas por el usuario
-  strlcpy(http_auth_path, "/api/Auth/GetToken", sizeof(http_auth_path));
-  strlcpy(http_register_path, "/api/MiaTelemetryMeter/RegisterMeterSerial",
-          sizeof(http_register_path));
-  strlcpy(http_save_index_path, "/api/MiaTelemetryIndex/SaveIndex",
-          sizeof(http_save_index_path));
-  strlcpy(http_save_alarm_path, "/api/MiaTelemetryAlarm/SaveAlarm",
-          sizeof(http_save_alarm_path));
-  strlcpy(http_save_batch_path, "/api/MiaTelemetryBatch/SaveBatch",
-          sizeof(http_save_batch_path));
-  strlcpy(http_get_index_path, "/api/MiaTelemetryReport/GetIndexsByMeter",
-          sizeof(http_get_index_path));
-  strlcpy(http_get_meters_path, "/api/MiaTelemetryReport/GetMetersByProvider",
-          sizeof(http_get_meters_path));
-  strlcpy(http_encrypt_test_path, "/api/EncryptDataTest/EncryptData",
-          sizeof(http_encrypt_test_path));
-  // Valores de pruebas por defecto
-  strlcpy(http_encrypt_key, "snHZjFmUkvD4BfmvdsyPcb3TptXWQvvpGWGSasv3Y3g=",
-          sizeof(http_encrypt_key));
-  strlcpy(http_encrypt_iv, "sAxi0e7BvpE9oR6WdfOlew==", sizeof(http_encrypt_iv));
-
   log("[ INFO ] Se reiniciaron todos los valores por defecto");
 }
 
@@ -309,32 +230,6 @@ boolean settingsSave() {
     jsonSettings["mqtt_topic_publish"] = mqtt_topic_publish;
     jsonSettings["mqtt_topic_subscribe"] = mqtt_topic_subscribe;
     jsonSettings["mqtt_custom_message"] = mqtt_custom_message;
-    // -------------------------------------------------------------------
-    // HTTP settings.json
-    // -------------------------------------------------------------------
-    jsonSettings["http_cloud_enable"] = http_cloud_enable;
-    jsonSettings["http_server"] = http_server;
-    jsonSettings["http_port"] = http_port;
-    jsonSettings["http_path"] = http_path;
-    jsonSettings["http_user_name"] = http_user_name;
-    jsonSettings["http_password"] = http_password;
-    jsonSettings["http_time_send"] = http_time_send;
-    jsonSettings["http_time_interval"] = http_time_interval;
-    jsonSettings["http_time_unit"] = http_time_unit;
-    jsonSettings["http_status_send"] = http_status_send;
-
-    // Rutas específicas
-    jsonSettings["http_auth_path"] = http_auth_path;
-    jsonSettings["http_register_path"] = http_register_path;
-    jsonSettings["http_save_index_path"] = http_save_index_path;
-    jsonSettings["http_save_alarm_path"] = http_save_alarm_path;
-    jsonSettings["http_save_batch_path"] = http_save_batch_path;
-    jsonSettings["http_get_index_path"] = http_get_index_path;
-    jsonSettings["http_get_meters_path"] = http_get_meters_path;
-    jsonSettings["http_encrypt_test_path"] = http_encrypt_test_path;
-    jsonSettings["http_encrypt_key"] = http_encrypt_key;
-    jsonSettings["http_encrypt_iv"] = http_encrypt_iv;
-
     serializeJsonPretty(jsonSettings, file);
     file.close();
     log("[ INFO ] Configuración Guardada correctamente");

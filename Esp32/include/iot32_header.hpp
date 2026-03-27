@@ -72,35 +72,6 @@ char mqtt_topic_publish[150];   // Topic para publicar
 char mqtt_topic_subscribe[150]; // Topic para suscribirse
 char mqtt_custom_message[512];  // Mensaje JSON personalizado a publicar
 // -------------------------------------------------------------------
-// Zona configuración HTTP
-// -------------------------------------------------------------------
-boolean http_cloud_enable; // Habilitar HTTP Cloud
-char http_server[100];     // Servidor HTTP Cloud
-int http_port;             // Puerto servidor HTTP Cloud
-char http_path[100];       // Path base para el HTTP Cloud
-char http_user_name[50];   // Usuario / Name para la API
-char http_password[100];   // Contraseña / Key para la API
-boolean http_time_send;    // Habilitar en envio de datos
-int http_time_interval;    // Tiempo de envio por HTTP en milisegundos
-int http_time_unit;        // Unidad de Tiempo HTTP
-boolean http_status_send;  // Habilitar en envio de estados
-
-// Sub-rutas específicas para la telemetría
-char http_auth_path[100];         // POST
-char http_register_path[100];     // POST
-char http_save_index_path[100];   // POST
-char http_save_alarm_path[100];   // POST
-char http_save_batch_path[100];   // POST
-char http_get_index_path[100];    // GET
-char http_get_meters_path[100];   // GET
-char http_encrypt_test_path[100]; // POST para pruebas
-char http_encrypt_key[64];        // AES-256 Key (Base64)
-char http_encrypt_iv[32];         // AES-256 IV (Base64)
-// Variables de control para el loop HTTP
-String http_token = "";           // Token de autenticación actual
-boolean http_registered = false;  // Dispositivo registrado?
-unsigned long http_last_send = 0; // Último tiempo de envío
-// -------------------------------------------------------------------
 // Zona Firmware Update
 // -------------------------------------------------------------------
 size_t content_len;

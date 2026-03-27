@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 const DIST_PATH = './dist';
-const OUTPUT_PATH = '../../AP/src/iotesp32.h';
+const OUTPUT_PATH = '../../Esp32/src/iotesp32.h';
 
 async function convertToHex(filePath) {
     try {
