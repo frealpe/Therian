@@ -481,6 +481,23 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
         log("[ WS ] Trigger animación: " + anim_type);
         // Aquí llamaríamos a funciones de lv_mascot.hpp para cambiar la
         // animación
+      } else if (type == "control") {
+        String control_type = doc["v"];
+        log("[ WS ] Trigger control: " + control_type);
+        if (control_type == "GET_TELEMETRY") {
+          StaticJsonDocument<256> telemetry_doc;
+          telemetry_doc["t"] = "data";
+          JsonObject v = telemetry_doc.createNestedObject("v");
+          v["bat"] = map(analogRead(34), 0, 4095, 0, 100);
+          v["signal"] = WiFi.RSSI();
+          v["free_heap"] = ESP.getFreeHeap();
+          v["heap_size"] = ESP.getHeapSize();
+          v["uptime"] = millis();
+
+          String telemetry_output;
+          serializeJson(telemetry_doc, telemetry_output);
+          client->text(telemetry_output);
+        }
       }
     }
   }
@@ -490,11 +507,14 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 // Enviar estados del sistema por WebSocket
 // -------------------------------------------------------------------
 void broadcastSystemStatus() {
-  StaticJsonDocument<128> doc;
+  StaticJsonDocument<256> doc;
   doc["t"] = "data";
   JsonObject v = doc.createNestedObject("v");
   v["bat"] = map(analogRead(34), 0, 4095, 0, 100);
   v["signal"] = WiFi.RSSI();
+  v["free_heap"] = ESP.getFreeHeap();
+  v["heap_size"] = ESP.getHeapSize();
+  v["uptime"] = millis();
 
   String output;
   serializeJson(doc, output);
