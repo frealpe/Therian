@@ -1,0 +1,16 @@
+# Dependency directories
+node_modules/
+.pio/
+.pioenvs/
+.piolibdeps/
+build/
+dist/
+
+# Local configuration files
+.env
+settings.json
+*.local
+
+# OS generated files
+.DS_Store
+Thumbs.db

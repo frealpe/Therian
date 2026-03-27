@@ -1,0 +1,52 @@
+const logger = require('../lib/logger');
+
+class SocketService {
+    constructor() {
+        if (SocketService.instance) {
+            return SocketService.instance;
+        }
+
+        this.io = null;
+        SocketService.instance = this;
+    }
+
+    // Inicializar con la instancia de IO desde el servidor HTTP
+    initialize(io) {
+        this.io = io;
+        
+        this.io.on('connection', (socket) => {
+            logger.info('🔌 Nuevo cliente conectado:', { socketId: socket.id });
+
+            socket.on('disconnect', () => {
+                logger.info('❌ Cliente desconectado:', { socketId: socket.id });
+            });
+
+            // Listen for MQTT commands from frontend
+            socket.on('mqtt:command', (data) => {
+                try {
+                    logger.debug('📡 [Socket] Relaying command to MQTT:', data);
+                    const mqttService = require('../mqtt/conectMqtt');
+                    if (data && data.topic && data.payload) {
+                        const payloadStr = typeof data.payload === 'string' ? data.payload : JSON.stringify(data.payload);
+                        mqttService.publicarMQTT(data.topic, payloadStr);
+                    }
+                } catch (err) {
+                    logger.error('❌ Error handling mqtt:command:', { error: err.message });
+                }
+            });
+        });
+
+        logger.info('✅ SocketService inicializado');
+    }
+
+    // Método para emitir eventos a todos los clientes
+    emit(event, data) {
+        if (!this.io) {
+            logger.warn('⚠️ Intentando emitir evento sin inicializar SocketService', { event });
+            return;
+        }
+        this.io.emit(event, data);
+    }
+}
+
+module.exports = new SocketService();
