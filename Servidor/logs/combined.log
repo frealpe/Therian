@@ -8160,3 +8160,19 @@
 2026-03-26 18:34:44 [INFO]: 📡 [MQTT] Suscrito a: drone/slave/+/calib_report {"metadata":{}}
 2026-03-26 18:34:44 [INFO]: 📡 [MQTT] Suscrito a: drone/sensor/+/mmwave {"metadata":{}}
 2026-03-26 18:34:44 [INFO]: 📡 [MQTT] Suscrito a: drone/uwb/+/position {"metadata":{}}
+2026-03-27 21:18:18 [INFO]: ✅ SocketService inicializado {"metadata":{}}
+2026-03-27 21:18:30 [WARN]: [AgentService] OpenAI API Key no configurada. El agente IA no estará disponible. {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 🚀 Servidor corriendo en http://localhost:8080 {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: ✅ [MQTT] Conectado a mqtt://localhost:1883 {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/master/+/status {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: ✅ [MongoDB] Conectado con éxito {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/master/+/telemetry {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/slave/+/data {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/slave/+/iam {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/slave/+/calib_report {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/sensor/+/mmwave {"metadata":{}}
+2026-03-27 21:18:30 [INFO]: 📡 [MQTT] Suscrito a: drone/uwb/+/position {"metadata":{}}
+2026-03-27 21:19:30 [INFO]: 🔌 Nuevo cliente conectado: {"metadata":{"socketId":"GK50veTki-uIMWuxAAAB"}}
+2026-03-27 21:19:30 [INFO]: ❌ Cliente desconectado: {"metadata":{"socketId":"GK50veTki-uIMWuxAAAB"}}
+2026-03-27 21:19:35 [INFO]: 🔌 Nuevo cliente conectado: {"metadata":{"socketId":"kmlMxBmeRhObID8bAAAD"}}
+2026-03-27 21:20:53 [INFO]: ❌ Cliente desconectado: {"metadata":{"socketId":"kmlMxBmeRhObID8bAAAD"}}

@@ -1,23 +1,23 @@
-# Dependency directories
+# Logs
+logs
+*.log
+npm-debug.log*
+
 node_modules/
-.pio/
-.pioenvs/
-.piolibdeps/
-build/
+**/node_modules/
 dist/
+dist-ssr/
+build/
 
-# Local configuration files
-.env
-settings.json
-*.local
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Expo / React Native
+# Expo & Mobile
 .expo/
 android/
 ios/
 *.apk
 *.aab
+
+# Editor directories and files
+.vscode/
+.idea/
+.DS_Store
+*.sw?
