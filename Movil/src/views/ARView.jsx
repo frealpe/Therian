@@ -5,17 +5,6 @@ import { Canvas } from '@react-three/fiber/native';
 import useAppWebSocket from '../hook/useAppWebSocket';
 import useDeviceStore from '../store/useDeviceStore';
 
-// Polyfill for Three.js to prevent "Cannot read property 'S' of undefined" (DOM access)
-if (typeof document === 'undefined') {
-    global.document = {
-        createElement: () => ({
-            style: {},
-            addEventListener: () => { },
-            removeEventListener: () => { },
-        }),
-    };
-}
-
 export default function ARView() {
     const [permission, requestPermission] = useCameraPermissions();
     const [scannedIp, setScannedIp] = useState(null);

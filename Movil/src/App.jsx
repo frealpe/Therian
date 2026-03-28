@@ -1,12 +1,13 @@
+import './lib/polyfills'; // Handle Three.js issues early
 import React from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
-import ARView from './views/ARView';
+import HomeScreen from './views/HomeScreen';
 
 const App = () => {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
-            <ARView />
+            <HomeScreen />
         </View>
     );
 };
