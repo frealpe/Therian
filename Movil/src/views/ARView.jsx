@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Button } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber/native';
 import { useWebSocket } from '../hook/useWebSocket';
 
 export default function ARView() {
