@@ -10,6 +10,7 @@
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#FFFFFF"
             }
-        }
+        },
+        "newArchEnabled": true
     }
 }

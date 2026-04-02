@@ -10,7 +10,14 @@ const NeonButton = ({ title, onPress, secondary, style }) => {
             onPress={onPress}
             style={[
                 styles.button,
-                { borderColor: color },
+                {
+                    borderColor: color,
+                    shadowColor: color,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 10,
+                    elevation: 5, // for Android
+                },
                 style
             ]}
         >
@@ -30,7 +37,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     text: {
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.headline,
         textTransform: 'uppercase',
         letterSpacing: 1.5,
         fontSize: 12,

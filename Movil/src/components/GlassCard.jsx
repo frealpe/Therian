@@ -6,7 +6,7 @@ import { Theme } from '../styles/Theme';
 const GlassCard = ({ children, style, padding = Theme.spacing.md }) => {
     return (
         <View style={[styles.container, style]}>
-            <BlurView intensity={20} tint="dark" style={[styles.blur, { padding }]}>
+            <BlurView intensity={60} tint="dark" style={[styles.blur, { padding }]}>
                 <View style={styles.inner}>
                     {children}
                 </View>

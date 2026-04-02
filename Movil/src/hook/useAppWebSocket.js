@@ -103,8 +103,8 @@ class WebSocketManager {
             }
         };
 
-        this.ws.onclose = () => {
-            console.log('[WS Manager] App WebSocket Desconectado');
+        this.ws.onclose = (event) => {
+            console.log(`[WS Manager] App WebSocket Desconectado de ${this.url}. Código: ${event.code}, Razón: ${event.reason}`);
 
             useDeviceStore.getState().setConnectionStatus(false);
             useChatStore.getState().setWsConnectionStatus(false);
@@ -114,10 +114,11 @@ class WebSocketManager {
             // Exponential Backoff
             if (this.url && this.isNetworkConnected && this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
                 const timeout = INITIAL_RECONNECT_INTERVAL_MS * Math.pow(2, this.reconnectAttempts);
+                console.log(`[WS Manager] Reintentando conexión en ${timeout}ms...`);
                 this.reconnectTimer = setTimeout(() => this.connect(), timeout);
                 this.reconnectAttempts += 1;
             } else if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS || !this.isNetworkConnected) {
-                console.warn('[WS Manager] Max reconnect attempts reached or network lost. Falling back to HTTP polling.');
+                console.warn('[WS Manager] Se alcanzó el máximo de intentos o no hay red. Usando HTTP polling.');
                 this.isFallbackMode = true;
                 this.startHttpFallbackPolling();
                 this.notifyListeners();
@@ -125,7 +126,7 @@ class WebSocketManager {
         };
 
         this.ws.onerror = (error) => {
-            console.error('[WS Manager] WebSocket Error:', error);
+            console.error('[WS Manager] WebSocket Error Detallado:', error.message || 'Error desconocido', error);
             // close() triggers onclose which handles reconnection
             if (this.ws) this.ws.close();
         };

@@ -42,7 +42,7 @@ const useBadge = () => {
 
         // Abrir galería con opciones de redimensión y compresión integradas
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,        // Permite recortar cuadrado
             aspect: [1, 1],             // Forzar relación 1:1
             quality: JPEG_QUALITY,      // Compresión JPEG

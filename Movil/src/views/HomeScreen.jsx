@@ -12,21 +12,415 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
     StyleSheet, View, Text, SafeAreaView, StatusBar,
     TouchableOpacity, TextInput, ScrollView, Modal,
-    Animated, ActivityIndicator, Image, FlatList,
+    Animated, ActivityIndicator, Image,
     Platform, Dimensions,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import {
     Wifi, Cpu, Menu, X, Image as ImageIcon,
     Send, Zap, Battery, Signal, RefreshCw,
     CheckCircle, AlertCircle, ChevronRight, Link, Link2,
+    Activity, Layout,
 } from 'lucide-react-native';
 import { Theme } from '../styles/Theme';
 import useAppWebSocket, { wsManager } from '../hook/useAppWebSocket';
 import useDeviceStore from '../store/useDeviceStore';
 import useBadge from '../hook/useBadge';
 
+const XENON_IMG = require('../../assets/xenon_04.png');
+
 const { width: SCREEN_W } = Dimensions.get('window');
 const DRAWER_W = SCREEN_W * 0.78;
+
+// ─────────────────────────────────────────────
+// Constantes y Utilidades (Top-level para evitar race conditions)
+// ─────────────────────────────────────────────
+const COMMON_PORTS = ['192.168.1.198', '192.168.4.1', '192.168.1.1', '192.168.0.1'];
+
+async function probeIP(ip) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 800);
+    try {
+        const res = await fetch(`http://${ip}/api/index`, { method: 'GET', signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) return ip;
+    } catch (_) {
+        clearTimeout(timer);
+    }
+    return null;
+}
+
+// ─────────────────────────────────────────────
+// Estilos (Definidos al inicio para evitar ReferenceError en Bridgeless)
+// ─────────────────────────────────────────────
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: Theme.colors.bg },
+
+    // ── Header ──
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Theme.spacing.lg,
+        paddingTop: Platform.OS === 'ios' ? 0 : 12,
+        paddingBottom: 20,
+        backgroundColor: Theme.colors.bg,
+    },
+    hamburger: { padding: 4 },
+    headerCenter: { flex: 1, alignItems: 'flex-start', paddingLeft: 20 },
+    headerTitle: {
+        color: Theme.colors.primary,
+        fontSize: 10,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 4,
+        marginBottom: 2,
+    },
+    headerSub: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    statusIndicator: { width: 4, height: 4, borderRadius: 2 },
+    headerIp: {
+        color: Theme.colors.textSecondary,
+        fontSize: 8,
+        fontFamily: Theme.fonts.mono,
+        letterSpacing: 1,
+        opacity: 0.6
+    },
+    headerAction: { padding: 4 },
+
+    // ── Pet Card (HUD Center) ──
+    petCard: {
+        width: '100%',
+        aspectRatio: 1,
+        backgroundColor: Theme.colors.surfaceLow,
+        borderRadius: Theme.borderRadius.lg,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Theme.colors.outlineVariant,
+        position: 'relative',
+    },
+    petImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    petOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        padding: Theme.spacing.lg,
+        justifyContent: 'space-between',
+    },
+    petTag: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+        borderLeftWidth: 2,
+        borderLeftColor: Theme.colors.primary,
+    },
+    petTagTxt: {
+        color: Theme.colors.primary,
+        fontSize: 8,
+        fontFamily: Theme.fonts.mono,
+        letterSpacing: 1,
+    },
+    petStatus: {
+        alignSelf: 'flex-end',
+        alignItems: 'flex-end',
+    },
+    petName: {
+        color: Theme.colors.text,
+        fontSize: 24,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 2,
+    },
+    petLink: {
+        color: '#00e676',
+        fontSize: 9,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 1,
+        marginTop: 2,
+    },
+
+    // ── Progress Bar ──
+    progressOuter: {
+        height: 2,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        width: '100%',
+        marginTop: 10,
+    },
+    progressInner: {
+        height: '100%',
+        backgroundColor: Theme.colors.primary,
+        // Bloom
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+    },
+
+    // ── Scroll ──
+    scroll: { flex: 1 },
+    scrollContent: { padding: Theme.spacing.md, gap: 24, paddingBottom: 60 },
+
+    // ── Sections ──
+    section: {
+        backgroundColor: Theme.colors.surfaceLow,
+        borderRadius: Theme.borderRadius.md,
+        padding: Theme.spacing.lg,
+        gap: 20,
+    },
+    sectionTitle: {
+        color: Theme.colors.primary,
+        fontSize: 10,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 3,
+        opacity: 0.5,
+        textAlign: 'right', // Asimetría HUD
+    },
+    divider: { height: 0, backgroundColor: 'transparent', marginVertical: 12 }, // Rule: No-Line
+
+    // ── Conexión ──
+    connectionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 20,
+    },
+    pulseContainer: { width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
+    pulseRing: {
+        position: 'absolute',
+        width: 50, height: 50,
+        borderRadius: 25,
+        borderWidth: 2,
+        borderColor: Theme.colors.error,
+        opacity: 0.1,
+    },
+    pulseRingActive: { borderColor: Theme.colors.success, opacity: 0.15 },
+    pulseDot: { width: 12, height: 12, borderRadius: 6 },
+
+    connectionInfo: { flex: 1 },
+    connectionLabel: {
+        color: Theme.colors.textSecondary,
+        fontSize: 10,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 2,
+        textTransform: 'uppercase'
+    },
+    connectionIp: {
+        fontSize: 22,
+        fontFamily: Theme.fonts.mono,
+        color: Theme.colors.text,
+        marginTop: 4,
+        letterSpacing: 1,
+    },
+    connectionState: {
+        fontSize: 11,
+        fontFamily: Theme.fonts.headline,
+        marginTop: 6,
+        letterSpacing: 1,
+        textTransform: 'uppercase'
+    },
+
+    scanQuickBtn: {
+        backgroundColor: Theme.colors.surfaceHigh,
+        padding: 12,
+        borderRadius: Theme.borderRadius.md,
+    },
+
+    // ── Telemetría ──
+    metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+    metricCard: {
+        flex: 1,
+        minWidth: '45%',
+        backgroundColor: Theme.colors.surfaceHigh,
+        borderRadius: Theme.borderRadius.md,
+        padding: Theme.spacing.md,
+        gap: 8,
+    },
+    metricHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    metricDot: { width: 3, height: 3, borderRadius: 1.5, opacity: 0.8 },
+    metricValue: {
+        fontSize: 24,
+        fontFamily: Theme.fonts.mono,
+        letterSpacing: -1,
+    },
+    metricLabel: {
+        color: Theme.colors.textSecondary,
+        fontSize: 9,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 2,
+        textTransform: 'uppercase',
+        opacity: 0.6,
+    },
+    offlineHint: { color: Theme.colors.textSecondary, fontSize: 11, textAlign: 'center', opacity: 0.5, marginTop: 10 },
+
+    // ── Comandos (Bottom HUD Actions) ──
+    cmdGrid: { flexDirection: 'row', gap: 12 },
+    cmdBtn: {
+        flex: 1,
+        height: 50,
+        borderRadius: Theme.borderRadius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.surfaceHigh,
+        borderWidth: 1,
+    },
+    cmdBtnActive: {
+        backgroundColor: 'rgba(153, 247, 255, 0.1)',
+        borderColor: Theme.colors.primary,
+    },
+    cmdBtnText: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 1,
+        textTransform: 'uppercase'
+    },
+
+    // ── Smart Badge ──
+    badgeRow: { flexDirection: 'row', gap: 20, alignItems: 'center' },
+    badgeThumb: {
+        width: 90, height: 90,
+        borderRadius: Theme.borderRadius.md,
+        backgroundColor: Theme.colors.surfaceHigh,
+    },
+    badgeImgContainer: {
+        width: '100%', height: '100%',
+        alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+        borderRadius: Theme.borderRadius.md
+    },
+    badgeImg: { width: '100%', height: '100%' },
+    badgePlaceholder: { alignItems: 'center', gap: 8 },
+    badgePlaceholderText: { color: Theme.colors.textSecondary, fontSize: 8, fontWeight: '900', letterSpacing: 2 },
+    badgeActions: { flex: 1, gap: 12 },
+    badgePickBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        paddingVertical: 12,
+        borderRadius: Theme.borderRadius.xs,
+        backgroundColor: Theme.colors.surfaceHigh,
+    },
+    badgeSendBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        paddingVertical: 14,
+        borderRadius: Theme.borderRadius.xs,
+        backgroundColor: Theme.colors.primary,
+        // Bloom Effect
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    badgeClearBtn: {
+        position: 'absolute', top: -6, right: -6,
+        padding: 5,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.surfaceBright,
+        zIndex: 10,
+    },
+    badgeBtnTxt: {
+        color: '#000',
+        fontSize: 10,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 2
+    },
+    btnDisabled: { opacity: 0.2 },
+    feedbackRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+    feedbackTxt: { fontSize: 11, color: Theme.colors.textSecondary, flex: 1, textTransform: 'uppercase', letterSpacing: 1 },
+
+    // ── Drawer ──
+    drawerBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+    },
+    drawer: {
+        position: 'absolute',
+        top: 0, left: 0, bottom: 0,
+        width: DRAWER_W,
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+    },
+    drawerInner: {
+        flex: 1,
+        padding: Theme.spacing.xl,
+        paddingTop: Platform.OS === 'android' ? 60 : 80,
+        gap: 24,
+    },
+    drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    drawerBrand: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    drawerBrandText: {
+        color: Theme.colors.primary,
+        fontSize: 18,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 4
+    },
+    drawerSection: {
+        color: Theme.colors.primary,
+        fontSize: 10,
+        fontFamily: Theme.fonts.headline,
+        letterSpacing: 3,
+        opacity: 0.4,
+        textTransform: 'uppercase'
+    },
+    drawerStatusRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        padding: 16,
+        borderRadius: Theme.borderRadius.md
+    },
+    drawerStatusText: { fontSize: 10, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' },
+    ipRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: Theme.borderRadius.md,
+        paddingHorizontal: 16, paddingVertical: 14,
+    },
+    drawerInput: {
+        flex: 1, color: Theme.colors.primary,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 15,
+        letterSpacing: 2,
+    },
+    drawerBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+        paddingVertical: 18,
+        borderRadius: Theme.borderRadius.md,
+    },
+    scanBtn: { backgroundColor: 'rgba(255,255,255,0.05)' },
+    connectBtn: {
+        backgroundColor: Theme.colors.primary,
+        // Bloom Effect
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    disconnectBtn: { backgroundColor: 'rgba(255,113,108,0.1)' },
+    drawerBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' },
+    drawerHint: {
+        color: Theme.colors.textSecondary,
+        fontSize: 9,
+        lineHeight: 18,
+        opacity: 0.5,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        textTransform: 'uppercase'
+    },
+
+    // ── StatusDot & Dots ──
+    dot: { width: 6, height: 6, borderRadius: 3 },
+
+    // ── Scan Quick Button Text ──
+    scanQuickTxt: {
+        color: Theme.colors.primary,
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 2,
+        marginTop: 4,
+        textAlign: 'center',
+    },
+});
 
 // ─────────────────────────────────────────────
 // Utilidades de UI
@@ -34,13 +428,19 @@ const DRAWER_W = SCREEN_W * 0.78;
 const Divider = () => <View style={styles.divider} />;
 
 const StatusDot = ({ online }) => (
-    <View style={[styles.dot, { backgroundColor: online ? '#00e676' : '#ff5252' }]} />
+    <View style={{
+        width: 6, height: 6, borderRadius: 3,
+        backgroundColor: online ? Theme.colors.success : Theme.colors.error
+    }} />
 );
 
 const MetricCard = ({ label, value, color = Theme.colors.primary }) => (
     <View style={styles.metricCard}>
+        <View style={styles.metricHeader}>
+            <Text style={styles.metricLabel}>{label}</Text>
+            <View style={[styles.metricDot, { backgroundColor: color }]} />
+        </View>
         <Text style={[styles.metricValue, { color }]}>{value}</Text>
-        <Text style={styles.metricLabel}>{label}</Text>
     </View>
 );
 
@@ -66,84 +466,88 @@ const DrawerMenu = ({ visible, onClose, ip, onIpChange, isOnline, onConnect, onD
 
             {/* Panel */}
             <Animated.View style={[styles.drawer, { transform: [{ translateX }] }]}>
-                {/* Drawer Header */}
-                <View style={styles.drawerHeader}>
-                    <View style={styles.drawerBrand}>
-                        <Cpu size={18} color={Theme.colors.primary} />
-                        <Text style={styles.drawerBrandText}>THERIAN_CTRL</Text>
+                <BlurView intensity={60} style={StyleSheet.absoluteFill} tint="dark" />
+                <View style={styles.drawerInner}>
+                    {/* Drawer Header */}
+                    <View style={styles.drawerHeader}>
+                        <View style={styles.drawerBrand}>
+                            <Cpu size={18} color={Theme.colors.primary} />
+                            <Text style={styles.drawerBrandText}>THERIAN_CTRL</Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <X size={20} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <X size={20} color={Theme.colors.textSecondary} />
+
+                    <Divider />
+
+                    {/* Conexión ESP32 */}
+                    <Text style={styles.drawerSection}>CONEXIÓN_PUERTO</Text>
+
+                    {/* Status */}
+                    <View style={styles.drawerStatusRow}>
+                        <StatusDot online={isOnline} />
+                        <Text style={[styles.drawerStatusText, { color: isOnline ? Theme.colors.success : Theme.colors.textSecondary }]}>
+                            {isOnline ? 'ENLACE_ACTIVO' : 'SISTEMA_OFFLINE'}
+                        </Text>
+                    </View>
+
+                    {/* Campo IP */}
+                    <View style={styles.ipRow}>
+                        <Wifi size={14} color={Theme.colors.primary} />
+                        <TextInput
+                            style={styles.drawerInput}
+                            value={ip}
+                            onChangeText={onIpChange}
+                            placeholder="192.168.x.x"
+                            placeholderTextColor={Theme.colors.textSecondary}
+                            keyboardType="numeric"
+                            autoCapitalize="none"
+                        />
+                    </View>
+
+                    {/* Botón Scan */}
+                    <TouchableOpacity
+                        style={[styles.drawerBtn, styles.scanBtn]}
+                        onPress={onScan}
+                        disabled={scanning}
+                        activeOpacity={0.8}
+                    >
+                        {scanning ? (
+                            <ActivityIndicator size="small" color={Theme.colors.primary} />
+                        ) : (
+                            <RefreshCw size={14} color={Theme.colors.primary} />
+                        )}
+                        <Text style={[styles.drawerBtnText, { color: Theme.colors.primary }]}>
+                            {scanning ? 'ESCAN_MAPPING...' : 'ESCANEAR_RED'}
+                        </Text>
                     </TouchableOpacity>
-                </View>
 
-                <Divider />
+                    {/* Botón Connect/Disconnect */}
+                    <TouchableOpacity
+                        style={[styles.drawerBtn, isOnline ? styles.disconnectBtn : styles.connectBtn]}
+                        onPress={isOnline ? onDisconnect : onConnect}
+                        activeOpacity={0.8}
+                    >
+                        {isOnline ? (
+                            <Link2 size={14} color={Theme.colors.error} />
+                        ) : (
+                            <Link size={14} color="#000" />
+                        )}
+                        <Text style={[styles.drawerBtnText, { color: isOnline ? Theme.colors.error : '#000' }]}>
+                            {isOnline ? 'TERMINAR_SESION' : 'INICIAR_ENLACE'}
+                        </Text>
+                    </TouchableOpacity>
 
-                {/* Conexión ESP32 */}
-                <Text style={styles.drawerSection}>CONEXIÓN ESP32</Text>
+                    <Divider />
 
-                {/* Status */}
-                <View style={styles.drawerStatusRow}>
-                    <StatusDot online={isOnline} />
-                    <Text style={[styles.drawerStatusText, { color: isOnline ? '#00e676' : Theme.colors.textSecondary }]}>
-                        {isOnline ? 'ENLACE ACTIVO' : 'DESCONECTADO'}
+                    {/* Info */}
+                    <Text style={styles.drawerSection}>CORE_KERNEL_INFO</Text>
+                    <Text style={styles.drawerHint}>
+                        TRÁFICO: WebSockets (JSON) → ws://{ip}/ws{"\n"}
+                        CARGA: HTTP (MULTIPART) → http://{ip}/api/badge/image
                     </Text>
                 </View>
-
-                {/* Campo IP */}
-                <View style={styles.ipRow}>
-                    <Wifi size={14} color={Theme.colors.primary} />
-                    <TextInput
-                        style={styles.drawerInput}
-                        value={ip}
-                        onChangeText={onIpChange}
-                        placeholder="192.168.x.x"
-                        placeholderTextColor={Theme.colors.textSecondary}
-                        keyboardType="numeric"
-                        autoCapitalize="none"
-                    />
-                </View>
-
-                {/* Botón Scan */}
-                <TouchableOpacity
-                    style={[styles.drawerBtn, styles.scanBtn]}
-                    onPress={onScan}
-                    disabled={scanning}
-                    activeOpacity={0.8}
-                >
-                    {scanning ? (
-                        <ActivityIndicator size="small" color={Theme.colors.primary} />
-                    ) : (
-                        <RefreshCw size={14} color={Theme.colors.primary} />
-                    )}
-                    <Text style={[styles.drawerBtnText, { color: Theme.colors.primary }]}>
-                        {scanning ? 'ESCANEANDO...' : 'ESCANEAR RED'}
-                    </Text>
-                </TouchableOpacity>
-
-                {/* Botón Connect/Disconnect */}
-                <TouchableOpacity
-                    style={[styles.drawerBtn, isOnline ? styles.disconnectBtn : styles.connectBtn]}
-                    onPress={isOnline ? onDisconnect : onConnect}
-                    activeOpacity={0.8}
-                >
-                    {isOnline ? (
-                        <Link2 size={14} color="#ff5252" />
-                    ) : (
-                        <Link size={14} color="#000" />
-                    )}
-                    <Text style={[styles.drawerBtnText, { color: isOnline ? '#ff5252' : '#000' }]}>
-                        {isOnline ? 'DESCONECTAR' : 'CONECTAR'}
-                    </Text>
-                </TouchableOpacity>
-
-                <Divider />
-
-                {/* Info */}
-                <Text style={styles.drawerSection}>ESTADO SISTEMA</Text>
-                <Text style={styles.drawerHint}>
-                    La app se conecta vía WebSocket a {`ws://${ip}/ws`} y envía imágenes a {`http://${ip}/api/badge/image`}
-                </Text>
             </Animated.View>
         </Modal>
     );
@@ -152,8 +556,13 @@ const DrawerMenu = ({ visible, onClose, ip, onIpChange, isOnline, onConnect, onD
 // ─────────────────────────────────────────────
 // Panel Smart Badge
 // ─────────────────────────────────────────────
-const BadgePanel = ({ ip }) => {
+const BadgePanel = ({ ip, onImageUploaded }) => {
     const { preview, loading, error, success, hasImage, pickImage, sendBadge, reset } = useBadge();
+
+    const handleSend = useCallback(async () => {
+        await sendBadge(ip);
+        if (onImageUploaded) onImageUploaded();
+    }, [ip, sendBadge, onImageUploaded]);
 
     return (
         <View style={styles.section}>
@@ -161,20 +570,28 @@ const BadgePanel = ({ ip }) => {
 
             <View style={styles.badgeRow}>
                 {/* Miniatura */}
-                <TouchableOpacity
-                    style={styles.badgeThumb}
-                    onPress={loading ? undefined : pickImage}
-                    activeOpacity={0.75}
-                >
-                    {preview ? (
-                        <Image source={{ uri: preview }} style={styles.badgeImg} />
-                    ) : (
-                        <View style={styles.badgePlaceholder}>
-                            <ImageIcon size={24} color={Theme.colors.textSecondary} />
-                            <Text style={styles.badgePlaceholderText}>TAP</Text>
-                        </View>
+                <View style={styles.badgeThumb}>
+                    <TouchableOpacity
+                        onPress={loading ? undefined : pickImage}
+                        activeOpacity={0.75}
+                        style={styles.badgeImgContainer}
+                    >
+                        {preview ? (
+                            <Image source={{ uri: preview }} style={styles.badgeImg} />
+                        ) : (
+                            <View style={styles.badgePlaceholder}>
+                                <ImageIcon size={24} color={Theme.colors.textSecondary} />
+                                <Text style={styles.badgePlaceholderText}>TAP</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
+                    {hasImage && !loading && (
+                        <TouchableOpacity style={styles.badgeClearBtn} onPress={reset} activeOpacity={0.8}>
+                            <X size={12} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
                     )}
-                </TouchableOpacity>
+                </View>
 
                 {/* Acciones */}
                 <View style={styles.badgeActions}>
@@ -185,7 +602,7 @@ const BadgePanel = ({ ip }) => {
 
                     <TouchableOpacity
                         style={[styles.badgeSendBtn, (!hasImage || loading) && styles.btnDisabled]}
-                        onPress={() => sendBadge(ip)}
+                        onPress={handleSend}
                         disabled={!hasImage || loading}
                         activeOpacity={0.8}
                     >
@@ -198,12 +615,6 @@ const BadgePanel = ({ ip }) => {
                             </>
                         )}
                     </TouchableOpacity>
-
-                    {hasImage && !loading && (
-                        <TouchableOpacity style={styles.badgeClearBtn} onPress={reset} activeOpacity={0.8}>
-                            <X size={13} color={Theme.colors.textSecondary} />
-                        </TouchableOpacity>
-                    )}
                 </View>
             </View>
 
@@ -224,18 +635,6 @@ const BadgePanel = ({ ip }) => {
     );
 };
 
-// ─────────────────────────────────────────────
-// Escáner de red (descubrimiento del ESP32)
-// ─────────────────────────────────────────────
-const COMMON_PORTS = ['192.168.1.198', '192.168.4.1', '192.168.1.1', '192.168.0.1'];
-
-async function probeIP(ip) {
-    try {
-        const res = await fetch(`http://${ip}/api/index`, { method: 'GET', signal: AbortSignal.timeout(800) });
-        if (res.ok) return ip;
-    } catch (_) { }
-    return null;
-}
 
 // ─────────────────────────────────────────────
 // Pantalla principal
@@ -248,10 +647,19 @@ const HomeScreen = () => {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [scanResults, setScanResults] = useState([]);
+    // Timestamp para forzar recarga de imagen sin recopilar el cache de React Native
+    const [imageTs, setImageTs] = useState(Date.now());
+    const [imageError, setImageError] = useState(false);
 
     // Una sola instancia del hook — pasa la URL completa
     const wsUrl = `ws://${ip}/ws`;
     const { sendCommand } = useAppWebSocket(wsUrl);
+
+    // Recargar imagen cuando cambia la IP
+    React.useEffect(() => {
+        setImageTs(Date.now());
+        setImageError(false);
+    }, [ip]);
 
     // ── Conexión ──────────────────────────────
     const handleConnect = useCallback(() => {
@@ -308,20 +716,21 @@ const HomeScreen = () => {
 
             {/* ── Header ── */}
             <View style={styles.header}>
-                <TouchableOpacity style={styles.hamburger} onPress={() => setDrawerOpen(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity style={styles.hamburger} onPress={() => setDrawerOpen(true)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                     <Menu size={22} color={Theme.colors.text} />
                 </TouchableOpacity>
 
                 <View style={styles.headerCenter}>
-                    <Cpu size={16} color={Theme.colors.primary} />
-                    <Text style={styles.headerTitle}>THERIAN</Text>
+                    <Text style={styles.headerTitle}>THERIAN_WALK</Text>
+                    <View style={styles.headerSub}>
+                        <View style={[styles.statusIndicator, { backgroundColor: isOnline ? Theme.colors.success : Theme.colors.error }]} />
+                        <Text style={styles.headerIp}>{ip}</Text>
+                    </View>
                 </View>
 
-                {/* Estado de conexión */}
-                <View style={styles.headerStatus}>
-                    <StatusDot online={isOnline} />
-                    <Text style={styles.headerIp}>{ip}</Text>
-                </View>
+                <TouchableOpacity style={styles.headerAction} onPress={() => setDrawerOpen(true)}>
+                    <RefreshCw size={16} color={isOnline ? Theme.colors.primary : Theme.colors.textSecondary} />
+                </TouchableOpacity>
             </View>
 
             {/* ── Contenido principal en scroll ── */}
@@ -330,75 +739,63 @@ const HomeScreen = () => {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Bloque de conexión visual ── */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>NODO ACTIVO</Text>
-                    <View style={styles.connectionCard}>
-                        {/* Indicador de pulso */}
-                        <View style={styles.pulseContainer}>
-                            <View style={[styles.pulseRing, isOnline && styles.pulseRingActive]} />
-                            <View style={[styles.pulseDot, { backgroundColor: isOnline ? '#00e676' : Theme.colors.secondary }]} />
+                {/* ── Pet HUD Center ── */}
+                <View style={styles.petCard}>
+                    <Image
+                        source={imageError ? XENON_IMG : { uri: `http://${ip}/api/badge/image?t=${imageTs}` }}
+                        style={styles.petImage}
+                        onError={() => setImageError(true)}
+                    />
+                    <View style={styles.petOverlay}>
+                        <View style={styles.petTag}>
+                            <Text style={styles.petTagTxt}>PET_08 // V.04 THERIANWALK</Text>
                         </View>
-
-                        <View style={styles.connectionInfo}>
-                            <Text style={styles.connectionLabel}>ESP32 NODE</Text>
-                            <Text style={[styles.connectionIp, { color: isOnline ? Theme.colors.primary : Theme.colors.textSecondary }]}>
-                                {ip}
+                        <View style={styles.petStatus}>
+                            <Text style={styles.petName}>BADGE_PET</Text>
+                            <Text style={[styles.petLink, !isOnline && { color: Theme.colors.error }]}>
+                                {isOnline ? 'ACTIVE LINK ESTABLISHED' : 'LINK OFFLINE // NO SIGNAL'}
                             </Text>
-                            <Text style={[styles.connectionState, { color: isOnline ? '#00e676' : '#ff5252' }]}>
-                                {isOnline ? '● ENLAZADO' : '○ SIN SEÑAL'}
-                            </Text>
+                            <View style={styles.progressOuter}>
+                                <View style={[styles.progressInner, { width: isOnline ? '85%' : '0%' }]} />
+                            </View>
                         </View>
+                    </View>
+                </View>
 
+                {/* ── HUD Telemetría ── */}
+                <View style={styles.metricsGrid}>
+                    <MetricCard label="VOLTAGE" value={isOnline ? '4.2V' : '--'} color={Theme.colors.primary} />
+                    <MetricCard label="RESERVE" value={isOnline ? `${bat}%` : '--'} color={Theme.colors.primary} />
+                    <MetricCard label="SIGNAL" value={isOnline ? `${signal}dBm` : '--'} color={Theme.colors.primary} />
+                </View>
+
+                {/* ── HUD Botones de Acción ── */}
+                <View style={styles.cmdGrid}>
+                    {[
+                        { label: 'FEED', action: 'FEED', icon: <Layout size={14} color={Theme.colors.primary} /> },
+                        { label: 'PLAY', action: 'JUMP', icon: <Activity size={14} color={Theme.colors.primary} /> },
+                        { label: 'LED ON', action: 'LED_ON', icon: <Zap size={14} color={Theme.colors.primary} /> },
+                    ].map((cmd) => (
                         <TouchableOpacity
-                            style={styles.scanQuickBtn}
-                            onPress={() => setDrawerOpen(true)}
-                            activeOpacity={0.8}
+                            key={cmd.action}
+                            style={[styles.cmdBtn, { borderColor: Theme.colors.outlineVariant }]}
+                            onPress={() => sendCommand('esp32', cmd.action)}
+                            activeOpacity={0.75}
                         >
-                            <RefreshCw size={14} color={Theme.colors.primary} />
-                            <Text style={styles.scanQuickTxt}>SCAN</Text>
+                            {cmd.icon}
+                            <Text style={[styles.cmdBtnText, { color: Theme.colors.primary, marginTop: 4 }]}>{cmd.label}</Text>
                         </TouchableOpacity>
-                    </View>
+                    ))}
                 </View>
 
-                {/* ── Telemetría ── */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>TELEMETRÍA EN VIVO</Text>
-                    <View style={styles.metricsGrid}>
-                        <MetricCard label="BATERÍA" value={isOnline ? `${bat}%` : '--'} color="#ffd740" />
-                        <MetricCard label="SEÑAL" value={isOnline ? `${signal}dBm` : '--'} color="#69f0ae" />
-                        <MetricCard label="HEAP" value={isOnline ? heap : '--'} color={Theme.colors.primary} />
-                        <MetricCard label="UPTIME" value={isOnline ? uptime : '--'} color="#ea80fc" />
-                    </View>
-                    {!isOnline && (
-                        <Text style={styles.offlineHint}>Abre el menú → CONECTAR para recibir datos en vivo</Text>
-                    )}
-                </View>
-
-                {/* ── Comandos ── */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>COMANDOS RÁPIDOS</Text>
-                    <View style={styles.cmdGrid}>
-                        {[
-                            { label: 'FEED', action: 'FEED', color: Theme.colors.primary },
-                            { label: 'PLAY', action: 'JUMP', color: '#69f0ae' },
-                            { label: 'LED ON', action: 'LED_ON', color: '#ffd740' },
-                            { label: 'LED OFF', action: 'LED_OFF', color: Theme.colors.secondary },
-                        ].map((cmd) => (
-                            <TouchableOpacity
-                                key={cmd.action}
-                                style={[styles.cmdBtn, { borderColor: cmd.color + '55' }]}
-                                onPress={() => sendCommand('esp32', cmd.action)}
-                                activeOpacity={0.75}
-                            >
-                                <Text style={[styles.cmdBtnText, { color: cmd.color }]}>{cmd.label}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                {/* ── Smart Badge ── */}
-                <BadgePanel ip={ip} />
+                {/* ── Smart Badge (Auxiliary) ── */}
+                <BadgePanel
+                    ip={ip}
+                    onImageUploaded={() => {
+                        setImageError(false);
+                        setImageTs(Date.now());
+                    }}
+                />
 
                 {/* Espaciado inferior */}
                 <View style={{ height: 24 }} />
@@ -420,206 +817,5 @@ const HomeScreen = () => {
     );
 };
 
-// ─────────────────────────────────────────────
-// Estilos
-// ─────────────────────────────────────────────
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Theme.colors.bg },
-
-    // ── Header ──
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Theme.spacing.md,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,242,255,0.08)',
-    },
-    hamburger: { padding: 4, marginRight: 12 },
-    headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    headerTitle: {
-        color: Theme.colors.primary,
-        fontSize: 15,
-        fontWeight: 'bold',
-        letterSpacing: 3,
-    },
-    headerStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    headerIp: { color: Theme.colors.textSecondary, fontSize: 10, fontFamily: 'monospace' },
-
-    // ── Scroll ──
-    scroll: { flex: 1 },
-    scrollContent: { padding: Theme.spacing.md, gap: Theme.spacing.md },
-
-    // ── Sections ──
-    section: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(0,242,255,0.1)',
-        borderRadius: Theme.borderRadius.md,
-        padding: Theme.spacing.md,
-        gap: 12,
-    },
-    sectionTitle: {
-        color: Theme.colors.textSecondary,
-        fontSize: 9,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-    },
-    divider: { height: 1, backgroundColor: 'rgba(0,242,255,0.08)', marginVertical: 8 },
-
-    // ── Conexión ──
-    connectionCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        paddingVertical: 4,
-    },
-    pulseContainer: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-    pulseRing: {
-        position: 'absolute',
-        width: 36, height: 36,
-        borderRadius: 18,
-        borderWidth: 1.5,
-        borderColor: '#ff5252',
-        opacity: 0.3,
-    },
-    pulseRingActive: { borderColor: '#00e676', opacity: 0.5 },
-    pulseDot: { width: 14, height: 14, borderRadius: 7 },
-
-    connectionInfo: { flex: 1 },
-    connectionLabel: { color: Theme.colors.textSecondary, fontSize: 9, letterSpacing: 1 },
-    connectionIp: { fontSize: 16, fontWeight: 'bold', fontFamily: 'monospace', marginTop: 2 },
-    connectionState: { fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-
-    scanQuickBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: Theme.colors.primary + '44',
-    },
-    scanQuickTxt: { color: Theme.colors.primary, fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
-
-    // ── Telemetría ──
-    metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    metricCard: {
-        flex: 1,
-        minWidth: '40%',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderRadius: Theme.borderRadius.sm,
-        padding: Theme.spacing.sm,
-        alignItems: 'center',
-    },
-    metricValue: { fontSize: 20, fontWeight: 'bold', fontFamily: 'monospace' },
-    metricLabel: { color: Theme.colors.textSecondary, fontSize: 8, marginTop: 2, letterSpacing: 1 },
-    offlineHint: { color: Theme.colors.textSecondary, fontSize: 11, textAlign: 'center', fontStyle: 'italic' },
-
-    // ── Comandos ──
-    cmdGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    cmdBtn: {
-        flex: 1,
-        minWidth: '40%',
-        paddingVertical: 14,
-        borderRadius: Theme.borderRadius.sm,
-        borderWidth: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-    },
-    cmdBtnText: { fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
-
-    // ── Smart Badge ──
-    badgeRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-    badgeThumb: {
-        width: 68, height: 68,
-        borderRadius: 10,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(0,242,255,0.2)',
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    badgeImg: { width: '100%', height: '100%' },
-    badgePlaceholder: { alignItems: 'center', gap: 4 },
-    badgePlaceholderText: { color: Theme.colors.textSecondary, fontSize: 7, letterSpacing: 1 },
-    badgeActions: { flex: 1, gap: 8 },
-    badgePickBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingVertical: 8, paddingHorizontal: 12,
-        borderRadius: 8, borderWidth: 1,
-        borderColor: Theme.colors.primary + '44',
-    },
-    badgeSendBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingVertical: 8, paddingHorizontal: 12,
-        borderRadius: 8,
-        backgroundColor: Theme.colors.primary,
-        justifyContent: 'center',
-    },
-    badgeClearBtn: {
-        alignSelf: 'center',
-        padding: 6,
-        borderRadius: 6,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    badgeBtnTxt: { color: '#000', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
-    btnDisabled: { opacity: 0.35 },
-    feedbackRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-    feedbackTxt: { fontSize: 11, flex: 1 },
-
-    // ── Drawer ──
-    drawerBackdrop: {
-        position: 'absolute',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.65)',
-        width: '100%',
-        height: '100%',
-        ...StyleSheet.absoluteFillObject,
-    },
-    drawer: {
-        position: 'absolute',
-        top: 0, left: 0, bottom: 0,
-        width: DRAWER_W,
-        backgroundColor: '#0f1117',
-        borderRightWidth: 1,
-        borderRightColor: 'rgba(0,242,255,0.15)',
-        padding: Theme.spacing.lg,
-        paddingTop: Platform.OS === 'android' ? 40 : Theme.spacing.xl,
-        gap: 12,
-    },
-    drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    drawerBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    drawerBrandText: { color: Theme.colors.primary, fontSize: 13, fontWeight: 'bold', letterSpacing: 2 },
-    drawerSection: { color: Theme.colors.textSecondary, fontSize: 9, letterSpacing: 1.5, fontWeight: 'bold' },
-    drawerStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-    drawerStatusText: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-    ipRow: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: 'rgba(0,242,255,0.05)',
-        borderWidth: 1, borderColor: 'rgba(0,242,255,0.2)',
-        borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
-    },
-    drawerInput: {
-        flex: 1, color: Theme.colors.primary,
-        fontFamily: 'monospace', fontSize: 13,
-    },
-    drawerBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        paddingVertical: 12, paddingHorizontal: 14,
-        borderRadius: 10,
-    },
-    scanBtn: { backgroundColor: 'rgba(0,242,255,0.08)', borderWidth: 1, borderColor: 'rgba(0,242,255,0.25)' },
-    connectBtn: { backgroundColor: Theme.colors.primary },
-    disconnectBtn: { backgroundColor: 'rgba(255,82,82,0.1)', borderWidth: 1, borderColor: '#ff525244' },
-    drawerBtnText: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-    drawerHint: { color: Theme.colors.textSecondary, fontSize: 10, lineHeight: 15 },
-
-    // ── StatusDot ──
-    dot: { width: 8, height: 8, borderRadius: 4 },
-});
 
 export default HomeScreen;
