@@ -37,9 +37,8 @@ boolean settingsRead() {
   if ((val = jsonSettings["device_config_serial"]))
     strlcpy(device_config_serial, val, sizeof(device_config_serial));
 
-  // --- OVERRIDE MANUAL: Descomenta la siguiente línea para forzar el serial de
-  // pruebas ---
-  strlcpy(device_config_serial, "serial1320001", sizeof(device_config_serial));
+  // strlcpy(device_config_serial, "serial1320001",
+  // sizeof(device_config_serial));
   if ((val = jsonSettings["device_id"]))
     strlcpy(device_id, val, sizeof(device_id));
   if ((val = jsonSettings["device_old_user"]))
@@ -64,6 +63,8 @@ boolean settingsRead() {
     strlcpy(wifi_dns_primary, val, sizeof(wifi_dns_primary));
   if ((val = jsonSettings["wifi_dns_secondary"]))
     strlcpy(wifi_dns_secondary, val, sizeof(wifi_dns_secondary));
+
+  // --- WIFI Cliente (Sin overrides) ---
 
   // --- WIFI AP ---
   if (jsonSettings.containsKey("ap_mode"))
@@ -134,12 +135,12 @@ void settingsReset() {
   // -------------------------------------------------------------------
   // WIFI Cliente settings.json
   // -------------------------------------------------------------------
-  wifi_ip_static = true;
-  strlcpy(wifi_ssid, "NICOLAS", sizeof(wifi_ssid));
-  strlcpy(wifi_password, "nicolas1308", sizeof(wifi_password));
-  strlcpy(wifi_ipv4, "192.168.20.150", sizeof(wifi_ipv4));
+  wifi_ip_static = false;
+  strlcpy(wifi_ssid, "5276193", sizeof(wifi_ssid));
+  strlcpy(wifi_password, "jhonnypaco", sizeof(wifi_password));
+  strlcpy(wifi_ipv4, "192.168.1.198", sizeof(wifi_ipv4));
   strlcpy(wifi_subnet, "255.255.255.0", sizeof(wifi_subnet));
-  strlcpy(wifi_gateway, "192.168.20.1", sizeof(wifi_gateway));
+  strlcpy(wifi_gateway, "192.168.1.1", sizeof(wifi_gateway));
   strlcpy(wifi_dns_primary, "8.8.8.8", sizeof(wifi_dns_primary));
   strlcpy(wifi_dns_secondary, "8.8.4.4", sizeof(wifi_dns_secondary));
   // -------------------------------------------------------------------

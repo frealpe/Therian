@@ -46,7 +46,7 @@ void startAP() {
 // -------------------------------------------------------------------
 void startClient() {
   log("[ INFO ] Conectando a la red WiFi (STA)...");
-  // Nos aseguramos de que el modo sea AP+STA
+  // Modo AP+STA habilitado
   WiFi.mode(WIFI_AP_STA);
   startAP(); // Iniciamos el AP siempre
   if (wifi_ip_static) {

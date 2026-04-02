@@ -425,6 +425,185 @@ void handleDoFirmware(AsyncWebServerRequest *request, const String &filename,
 }
 
 // -------------------------------------------------------------------
+// SMART BADGE: Flag global para señalizar refresco a LVGL sin bloquear
+// -------------------------------------------------------------------
+volatile bool badge_updated = false;
+
+// -------------------------------------------------------------------
+// SMART BADGE: Decodificador base64 (RFC 4648) en bloques de 4 chars
+// Retorna el número de bytes escritos, o -1 en error.
+// -------------------------------------------------------------------
+static int base64Decode(const char *src, size_t srcLen, uint8_t *dst,
+                        size_t dstLen) {
+  // Tabla de decodificación base64
+  static const int8_t b64_table[256] = {
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57,
+      58, 59, 60, 61, -1, -1, -1, 0,  -1, -1, -1, 0,  1,  2,  3,  4,  5,  6,
+      7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+      25, -1, -1, -1, -1, -1, -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+      37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1};
+
+  size_t written = 0;
+  uint32_t val = 0;
+  int bits = 0;
+
+  for (size_t i = 0; i < srcLen; i++) {
+    uint8_t c = (uint8_t)src[i];
+    // Saltar caracteres de relleno y espacios
+    if (c == '=' || c == '\n' || c == '\r' || c == ' ')
+      continue;
+    int8_t v = b64_table[c];
+    if (v < 0)
+      return -1; // Carácter inválido
+
+    val = (val << 6) | (uint8_t)v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      if (written >= dstLen)
+        return -1; // Buffer destino lleno
+      dst[written++] = (uint8_t)(val >> bits);
+    }
+  }
+  return (int)written;
+}
+
+// -------------------------------------------------------------------
+// SMART BADGE: Handler POST /api/badge/image
+// Recibe: { "image": "<base64 JPEG>" }
+// Decodifica y guarda en /badge.bin en SPIFFS.
+// Usa lectura en streaming para no cargar el JSON completo en heap.
+// -------------------------------------------------------------------
+void postBadgeImage(AsyncWebServerRequest *request, uint8_t *data, size_t len,
+                    size_t index, size_t total) {
+  const char *dataType = "application/json";
+  static File badgeFile;
+  static bool badgeOpen = false;
+  static size_t b64Offset = 0;      // Posición dentro del valor base64
+  static bool inImageValue = false; // Estamos dentro del valor JSON "image"
+  static char carry[4];             // Bytes residuales del bloque anterior
+  static int carryLen = 0;
+
+  // --- Inicio del stream: limpiar estado y abrir archivo ---
+  if (index == 0) {
+    log("[ BADGE ] Recibiendo imagen...");
+    // Verificar heap disponible (mínimo 8KB para operar)
+    if (ESP.getFreeHeap() < 8192) {
+      log("[ BADGE ] ERROR: Heap insuficiente");
+      request->send(507, dataType,
+                    "{\"ok\":false,\"error\":\"Heap insuficiente\"}");
+      return;
+    }
+    if (badgeOpen) {
+      badgeFile.close();
+      badgeOpen = false;
+    }
+    badgeFile = SPIFFS.open("/badge.bin", FILE_WRITE);
+    if (!badgeFile) {
+      log("[ BADGE ] ERROR: No se pudo abrir /badge.bin");
+      request->send(500, dataType, "{\"ok\":false,\"error\":\"SPIFFS error\"}");
+      return;
+    }
+    badgeOpen = true;
+    b64Offset = 0;
+    inImageValue = false;
+    carryLen = 0;
+  }
+
+  if (!badgeOpen)
+    return; // Error previo, ignorar chunks
+
+  // --- Localizar el inicio del valor base64 dentro del chunk ---
+  // El JSON llega como: {"image":"<data>"}
+  // Buscamos la subcadena `"image":"` y extraemos desde ahí
+  const uint8_t *ptr = data;
+  size_t remaining = len;
+
+  if (!inImageValue) {
+    // Busca el patrón  "image":"  en el chunk actual
+    const char *needle = "\"image\":\"";
+    size_t needleLen = 9;
+    for (size_t i = 0; i + needleLen <= remaining; i++) {
+      if (memcmp(ptr + i, needle, needleLen) == 0) {
+        ptr += i + needleLen;
+        remaining -= i + needleLen;
+        inImageValue = true;
+        break;
+      }
+    }
+  }
+
+  if (!inImageValue)
+    return; // Aún no encontramos el inicio, seguir con el próximo chunk
+
+  // --- Decodificar base64 del chunk actual ---
+  // Acumular carry del chunk anterior para no perder bloques de 4
+  uint8_t decBuf[512];
+
+  // Construir buffer combinando carry + chunk actual (hasta EOF del valor: `"`)
+  // Removemos el `"` de cierre si está en este chunk
+  size_t b64Len = remaining;
+  for (size_t i = 0; i < remaining; i++) {
+    if (ptr[i] == '"' || ptr[i] == '}') {
+      b64Len = i;
+      break;
+    }
+  }
+
+  // Procesar en bloques de 512 chars base64 → ~384 bytes binarios
+  size_t processed = 0;
+  while (processed < b64Len) {
+    // Rellenar buffer temporal con carry + nuevos datos
+    char tmpBuf[516];
+    memcpy(tmpBuf, carry, carryLen);
+    size_t take = min((size_t)(512 - carryLen), b64Len - processed);
+    memcpy(tmpBuf + carryLen, ptr + processed, take);
+    int tmpLen = carryLen + take;
+    processed += take;
+
+    // Alinear a múltiplo de 4 para decodificar
+    int alignedLen = (tmpLen / 4) * 4;
+    carryLen = tmpLen - alignedLen;
+    if (carryLen > 0)
+      memcpy(carry, tmpBuf + alignedLen, carryLen);
+
+    if (alignedLen > 0) {
+      int decoded = base64Decode(tmpBuf, alignedLen, decBuf, sizeof(decBuf));
+      if (decoded > 0) {
+        badgeFile.write(decBuf, decoded);
+      }
+    }
+  }
+
+  // --- Fin del stream ---
+  if (index + len >= total) {
+    // Escribir el carry final si queda
+    if (carryLen > 0) {
+      int decoded = base64Decode(carry, carryLen, decBuf, sizeof(decBuf));
+      if (decoded > 0)
+        badgeFile.write(decBuf, decoded);
+      carryLen = 0;
+    }
+    badgeFile.close();
+    badgeOpen = false;
+    inImageValue = false;
+    badge_updated = true; // Señaliza a LVGL
+    log("[ BADGE ] Imagen guardada en /badge.bin");
+    request->send(200, dataType, "{\"ok\":true,\"file\":\"badge.bin\"}");
+  }
+}
+
+// -------------------------------------------------------------------
 // Método POST para la carga del Avatar desde la App Móvil
 // -------------------------------------------------------------------
 void handleAvatarUpload(AsyncWebServerRequest *request, String filename,
@@ -459,7 +638,10 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                AwsEventType type, void *arg, uint8_t *data, size_t len) {
   if (type == WS_EVT_CONNECT) {
     log("[ WS ] Cliente conectado ID: " + String(client->id()));
-    client->text("{\"type\":\"info\",\"source\":\"esp32\",\"target\":\"mobile\",\"action\":\"connected\",\"payload\":{\"message\":\"Conectado al ESP32 AR Bridge\"},\"timestamp\":" + String(millis()) + "}");
+    client->text("{\"type\":\"info\",\"source\":\"esp32\",\"target\":"
+                 "\"mobile\",\"action\":\"connected\",\"payload\":{\"message\":"
+                 "\"Conectado al ESP32 AR Bridge\"},\"timestamp\":" +
+                 String(millis()) + "}");
   } else if (type == WS_EVT_DISCONNECT) {
     log("[ WS ] Cliente desconectado");
   } else if (type == WS_EVT_DATA) {
@@ -494,7 +676,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           telemetry_doc["action"] = "telemetry_data";
           telemetry_doc["timestamp"] = millis();
           JsonObject payload = telemetry_doc.createNestedObject("payload");
-          payload["bat"] = map(analogRead(34), 0, 4095, 0, 100);
+          payload["bat"] = map(analogRead(0), 0, 4095, 0, 100);
           payload["signal"] = WiFi.RSSI();
           payload["free_heap"] = ESP.getFreeHeap();
           payload["heap_size"] = ESP.getHeapSize();
@@ -504,11 +686,11 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           serializeJson(telemetry_doc, telemetry_output);
           client->text(telemetry_output);
         } else {
-            // handle avatar anim events via log for now
-            String target = doc["target"];
-            if (target == "avatar") {
-                 log("[ WS ] Trigger avatar animación: " + action);
-            }
+          // handle avatar anim events via log for now
+          String target = doc["target"];
+          if (target == "avatar") {
+            log("[ WS ] Trigger avatar animación: " + action);
+          }
         }
       }
     }
@@ -527,7 +709,7 @@ void broadcastSystemStatus() {
   doc["timestamp"] = millis();
 
   JsonObject payload = doc.createNestedObject("payload");
-  payload["bat"] = map(analogRead(34), 0, 4095, 0, 100);
+  payload["bat"] = map(analogRead(0), 0, 4095, 0, 100);
   payload["signal"] = WiFi.RSSI();
   payload["free_heap"] = ESP.getFreeHeap();
   payload["heap_size"] = ESP.getHeapSize();
@@ -543,6 +725,7 @@ void InitServer() {
   // Servir Frontend desde la Memoria
   // -------------------------------------------------------------------
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    log("[ INFO ] Petición HTTP recibida en /");
     AsyncWebServerResponse *response = request->beginResponse_P(
         200, "text/html", index_html, index_html_length);
     response->addHeader("Content-Encoding", "gzip");
@@ -557,6 +740,7 @@ void InitServer() {
   });
 
   server.on("/assets/iot32.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+    log("[ INFO ] Petición HTTP recibida en /assets/iot32.js");
     AsyncWebServerResponse *response = request->beginResponse_P(
         200, "application/javascript", app_js, app_js_length);
     response->addHeader("Content-Encoding", "gzip");
@@ -948,6 +1132,55 @@ void InitServer() {
          uint8_t *data, size_t len, bool final) {
         handleAvatarUpload(request, filename, index, data, len, final);
       });
+
+  // -------------------------------------------------------------------
+  // SMART BADGE - Recibir imagen desde app móvil
+  // url: /api/badge/image
+  // Método: POST, Body: { "image": "<base64 JPEG 240x240>" }
+  // -------------------------------------------------------------------
+  server.on(
+      "/api/badge/image", HTTP_POST, [](AsyncWebServerRequest *request) {},
+      nullptr, postBadgeImage);
+
+  // -------------------------------------------------------------------
+  // SMART BADGE - Consultar si hay imagen disponible
+  // url: /api/badge/status
+  // Método: GET
+  // Responde: { "has_badge": true/false, "updated": true/false }
+  // -------------------------------------------------------------------
+  server.on("/api/badge/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    bool hasBadge = SPIFFS.exists("/badge.bin");
+    String json = "{\"has_badge\":";
+    json += hasBadge ? "true" : "false";
+    json += ",\"updated\":";
+    json += badge_updated ? "true" : "false";
+    json += ",\"free_heap\":";
+    json += String(ESP.getFreeHeap());
+    json += "}";
+    request->send(200, "application/json", json);
+  });
+
+  // -------------------------------------------------------------------
+  // SMART BADGE - Servir la imagen badge al navegador web
+  // url: /api/badge/serve
+  // Método: GET
+  // Retorna: imagen JPEG/binaria guardada en /badge.bin
+  // Uso: <img src="/api/badge/serve?t=<timestamp>">
+  // -------------------------------------------------------------------
+  server.on("/api/badge/serve", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!SPIFFS.exists("/badge.bin")) {
+      request->send(404, "application/json", "{\"error\":\"No hay badge\"}");
+      return;
+    }
+    AsyncWebServerResponse *response =
+        request->beginResponse(SPIFFS, "/badge.bin", "image/jpeg");
+    // Forzar recarga (no usar caché del browser)
+    response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response->addHeader("Pragma", "no-cache");
+    // Resetear flag al ser servida (el browser la acaba de descargar)
+    badge_updated = false;
+    request->send(response);
+  });
 
   // -------------------------------------------------------------------
   // Configuración de WebSocket

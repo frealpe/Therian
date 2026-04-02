@@ -1,6 +1,6 @@
 import React from 'react'
 import { CContainer, CCard, CCardBody, CProgress, CTable, CTableBody, CTableRow, CTableDataCell, CBadge } from '@coreui/react'
-import { CIcon } from '@coreui/icons-react'
+import CIcon from '@coreui/icons-react'
 import {
     cilBarcode,
     cilCloud,
@@ -25,48 +25,49 @@ const Index = () => {
     return (
         <div className="px-2">
             {/* Top stat cards */}
+            {/* Top stat cards */}
             <div className="row g-2 mb-2">
                 <div className="col-md-6 col-xl-3">
-                    <CCard className="text-white bg-primary h-100">
-                        <CCardBody className="d-flex align-items-center justify-content-between p-2">
-                            <CIcon icon={cilBarcode} size="xl" className="opacity-75" />
+                    <CCard className="h-100 border-neon">
+                        <CCardBody className="d-flex align-items-center justify-content-between p-3">
+                            <CIcon icon={cilBarcode} size="xl" className="text-info opacity-75" />
                             <div className="text-end">
-                                <p className="fs-6 fw-medium mb-0">Dispositivo</p>
-                                <p className="mb-0 small opacity-75">{indexDatos.device_serial || 'ESP3200000000000'}</p>
+                                <p className="fs-6 fw-bold mb-0 text-info">DEVICE</p>
+                                <p className="mb-0 small text-white opacity-75 monospace">{indexDatos.device_serial || 'ESP32000000'}</p>
                             </div>
                         </CCardBody>
                     </CCard>
                 </div>
                 <div className="col-md-6 col-xl-3">
-                    <CCard className={`text-white h-100 ${mqttClass03}`}>
-                        <CCardBody className="d-flex align-items-center justify-content-between p-2">
-                            <CIcon icon={cilCloud} size="xl" className="opacity-75" />
+                    <CCard className={`h-100 ${indexDatos.mqtt_online ? 'border-neon' : 'border-danger'}`}>
+                        <CCardBody className="d-flex align-items-center justify-content-between p-3">
+                            <CIcon icon={cilCloud} size="xl" className={indexDatos.mqtt_online ? 'text-info' : 'text-danger'} />
                             <div className="text-end">
-                                <p className="fs-6 fw-medium mb-0">Protocolo</p>
-                                <p className="mb-0 small opacity-75">({indexDatos.mqtt_server || 'N/A'}) - {mqttStatus}</p>
+                                <p className="fs-6 fw-bold mb-0">PROTOCOL</p>
+                                <p className="mb-0 small opacity-75 monospace">{mqttStatus}</p>
                             </div>
                         </CCardBody>
                     </CCard>
                 </div>
                 <div className="col-md-6 col-xl-3">
-                    <CCard className={`text-white h-100 ${wifiClass03}`}>
-                        <CCardBody className="d-flex align-items-center justify-content-between p-2">
+                    <CCard className={`h-100 ${indexDatos.wifi_online ? 'border-neon' : 'border-warning'}`}>
+                        <CCardBody className="d-flex align-items-center justify-content-between p-3">
                             <div className="text-start">
-                                <p className="fs-6 fw-medium mb-0">WiFi</p>
-                                <p className="mb-0 small opacity-75">({indexDatos.wifi_ssid || 'N/A'}) - {wifiStatus}</p>
+                                <p className="fs-6 fw-bold mb-0">WIFI_LINK</p>
+                                <p className="mb-0 small opacity-75 monospace">{wifiStatus}</p>
                             </div>
-                            <CIcon icon={cilWifiSignal4} size="xl" className="opacity-75" />
+                            <CIcon icon={cilWifiSignal4} size="xl" className={indexDatos.wifi_online ? '' : 'text-warning'} style={indexDatos.wifi_online ? { color: 'var(--neon-primary)' } : {}} />
                         </CCardBody>
                     </CCard>
                 </div>
                 <div className="col-md-6 col-xl-3">
-                    <CCard className="text-white bg-warning h-100">
-                        <CCardBody className="d-flex align-items-center justify-content-between p-2">
+                    <CCard className="h-100 border-neon">
+                        <CCardBody className="d-flex align-items-center justify-content-between p-3">
                             <div className="text-start">
-                                <p className="fs-6 fw-medium mb-0">WiFi RSSI</p>
-                                <p className="mb-0 small opacity-75">{indexDatos.wifi_rssi} dBm</p>
+                                <p className="fs-6 fw-bold mb-0" style={{ color: 'var(--neon-primary)' }}>RSSI</p>
+                                <p className="mb-0 small monospace" style={{ color: 'var(--neon-primary)' }}>{indexDatos.wifi_rssi} dBm</p>
                             </div>
-                            <CIcon icon={cilSignalCellular4} size="xl" className="opacity-75" />
+                            <CIcon icon={cilSignalCellular4} size="xl" style={{ color: 'var(--neon-primary)' }} className="opacity-75" />
                         </CCardBody>
                     </CCard>
                 </div>
@@ -75,28 +76,28 @@ const Index = () => {
             {/* Stats row */}
             <div className="row g-2 mb-3">
                 <div className="col-md-6">
-                    <CCard>
-                        <CCardBody className="p-2">
+                    <CCard className="border-neon">
+                        <CCardBody className="p-3">
                             <div className="row text-center">
-                                <div className="col-4 border-end">
+                                <div className="col-4 border-end border-secondary">
                                     <div className="py-1">
-                                        <CIcon icon={cilMemory} size="xl" className="text-primary mb-1" />
-                                        <p className="fs-6 fw-medium mb-0">{ramFree.toFixed(2)} %</p>
-                                        <p className="text-muted small mb-0" style={{ fontSize: '0.7em' }}>RAM Disponible</p>
+                                        <CIcon icon={cilMemory} size="xl" style={{ color: 'var(--neon-primary)' }} className="mb-1" />
+                                        <p className="fs-6 fw-bold mb-0 monospace">{ramFree.toFixed(2)}%</p>
+                                        <p className="text-muted small mb-0 uppercase-mini">RAM_FREE</p>
                                     </div>
                                 </div>
-                                <div className="col-4 border-end">
+                                <div className="col-4 border-end border-secondary">
                                     <div className="py-1">
-                                        <CIcon icon={cilSatelite} size="xl" className="text-primary mb-1" />
-                                        <p className="fs-6 fw-medium mb-0">{indexDatos.wifi_signal || 0} %</p>
-                                        <p className="text-muted small mb-0" style={{ fontSize: '0.7em' }}>Señal WiFi</p>
+                                        <CIcon icon={cilSatelite} size="xl" style={{ color: 'var(--neon-primary)' }} className="mb-1" />
+                                        <p className="fs-6 fw-bold mb-0 monospace">{indexDatos.wifi_signal || 0}%</p>
+                                        <p className="text-muted small mb-0 uppercase-mini">SIGNAL</p>
                                     </div>
                                 </div>
                                 <div className="col-4">
                                     <div className="py-1">
-                                        <CIcon icon={cilGlobeAlt} size="xl" className="text-primary mb-1" />
-                                        <p className="fs-6 fw-medium mb-0">{indexDatos.mqtt_activity || 'Unknown'}</p>
-                                        <p className="text-muted small mb-0" style={{ fontSize: '0.7em' }}>Protocolo</p>
+                                        <CIcon icon={cilGlobeAlt} size="xl" className="text-info mb-1" />
+                                        <p className="fs-6 fw-bold mb-0 monospace">{indexDatos.mqtt_activity || 'IDLE'}</p>
+                                        <p className="text-muted small mb-0 uppercase-mini">ACTIVITY</p>
                                     </div>
                                 </div>
                             </div>
@@ -104,28 +105,28 @@ const Index = () => {
                     </CCard>
                 </div>
                 <div className="col-md-6">
-                    <CCard className="text-white" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-                        <CCardBody className="p-2">
+                    <CCard className="border-neon" style={{ background: 'linear-gradient(135deg, rgba(0, 242, 255, 0.05) 0%, rgba(255, 0, 102, 0.05) 100%)' }}>
+                        <CCardBody className="p-3">
                             <div className="row text-center">
-                                <div className="col-4 border-end">
+                                <div className="col-4 border-end border-secondary">
                                     <div className="py-1">
-                                        <CIcon icon={cilStorage} size="xl" className="mb-1 opacity-75" />
-                                        <p className="fs-6 fw-medium mb-0">{spiffsUsed.toFixed(2)} %</p>
-                                        <p className="opacity-75 mb-0" style={{ fontSize: '0.7em' }}>SPIFFS Usada</p>
+                                        <CIcon icon={cilStorage} size="xl" className="text-info mb-1 opacity-75" />
+                                        <p className="fs-6 fw-bold mb-0 monospace">{spiffsUsed.toFixed(2)}%</p>
+                                        <p className="text-muted small mb-0 uppercase-mini">STORAGE</p>
                                     </div>
                                 </div>
-                                <div className="col-4 border-end">
+                                <div className="col-4 border-end border-secondary">
                                     <div className="py-1">
-                                        <CIcon icon={cilReload} size="xl" className="mb-1 opacity-75" />
-                                        <p className="fs-6 fw-medium mb-0">{indexDatos.device_restart || 0}</p>
-                                        <p className="opacity-75 mb-0" style={{ fontSize: '0.7em' }}>Reinicios</p>
+                                        <CIcon icon={cilReload} size="xl" className="text-info mb-1 opacity-75" />
+                                        <p className="fs-6 fw-bold mb-0 monospace">{indexDatos.device_restart || 0}</p>
+                                        <p className="text-muted small mb-0 uppercase-mini">REBOOTS</p>
                                     </div>
                                 </div>
                                 <div className="col-4">
                                     <div className="py-1">
-                                        <CIcon icon={cilClock} size="xl" className="mb-1 opacity-75" />
-                                        <p className="fs-6 fw-medium mb-0">{indexDatos.device_time_active || '0:00:00:00'}</p>
-                                        <p className="opacity-75 mb-0" style={{ fontSize: '0.7em' }}>Tiempo Activo</p>
+                                        <CIcon icon={cilClock} size="xl" className="text-info mb-1 opacity-75" />
+                                        <p className="fs-6 fw-bold mb-0 monospace" style={{ fontSize: '0.9rem' }}>{indexDatos.device_time_active || '0:00:00'}</p>
+                                        <p className="text-muted small mb-0 uppercase-mini">UPTIME</p>
                                     </div>
                                 </div>
                             </div>

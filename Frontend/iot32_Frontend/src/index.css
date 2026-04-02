@@ -1,57 +1,179 @@
-/* Global overrides for IOT32 AdminTool */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700&display=swap');
 
 :root {
-  --cui-sidebar-bg: #1a1a2e;
-  --cui-sidebar-brand-bg: #16213e;
-  --cui-sidebar-nav-link-active-bg: #321fdb;
+  --neon-primary: #00f2ff;
+  /* Default Cyan */
+  --neon-cyan: #00f2ff;
+  --neon-magenta: #ff0066;
+  --neon-green: #39ff14;
+  --dark-bg: #0a0a0a;
+  --panel-bg: rgba(22, 26, 33, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #ecedf6;
 }
 
 body {
+  background-color: var(--dark-bg);
+  color: var(--text-primary);
   font-family: 'Inter', sans-serif;
-  background-color: #f8f9fa;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* CoreUI Overrides */
 .sidebar {
-  --cui-sidebar-bg: #1a1a2e !important;
+  background: #0d1117 !important;
+  border-right: 1px solid var(--glass-border) !important;
 }
 
-.sidebar-brand {
-  background-color: #16213e !important;
-}
-
-.nav-link {
-  padding: 0.6rem 1rem;
-  border-radius: 6px;
-  margin: 2px 8px;
-  transition: background 0.2s ease;
-}
-
-.nav-link:hover {
-  background-color: rgba(255,255,255,0.08);
-}
-
-.nav-link.active {
-  background-color: #321fdb !important;
-  color: white !important;
+.header {
+  background: rgba(13, 17, 23, 0.8) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--glass-border) !important;
+  color: var(--text-primary) !important;
 }
 
 .card {
-  border: none;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  border-radius: 12px;
+  background: var(--panel-bg) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  color: var(--text-primary) !important;
 }
 
 .card-header {
-  border-radius: 12px 12px 0 0 !important;
-  border-bottom: none;
+  background: transparent !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+  color: var(--neon-primary) !important;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  padding: 1.2rem !important;
 }
 
-.progress {
-  border-radius: 0;
+.btn-primary {
+  background: transparent !important;
+  border: 1px solid var(--neon-primary) !important;
+  color: var(--neon-primary) !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
 }
 
-.badge {
-  font-weight: 500;
+.btn-primary:hover {
+  background: var(--neon-primary) !important;
+  color: #000 !important;
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+}
+
+.nav-link {
+  color: var(--text-primary) !important;
+  transition: all 0.2s;
+}
+
+.nav-link.active {
+  color: var(--neon-primary) !important;
+  background: rgba(0, 242, 255, 0.05) !important;
+}
+
+.nav-link:hover {
+  color: var(--neon-primary) !important;
+}
+
+/* Form Styling */
+.form-control,
+.form-select {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--neon-primary) !important;
+  box-shadow: 0 0 0 0.25rem rgba(0, 242, 255, 0.1) !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dark-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-primary);
+}
+
+/* Neon Utilities */
+.border-neon {
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.border-neon:hover {
+  border-color: var(--neon-primary) !important;
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+}
+
+.uppercase-mini {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.monospace {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.text-neon {
+  color: var(--neon-primary) !important;
+  text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+}
+
+.neon-hover:hover {
+  background: rgba(0, 242, 255, 0.05) !important;
+  color: var(--neon-primary) !important;
+}
+
+.neon-hover-danger:hover {
+  background: rgba(255, 0, 102, 0.05) !important;
+  color: var(--neon-magenta) !important;
+}
+
+.pulse {
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    filter: drop-shadow(0 0 5px var(--neon-primary));
+  }
+
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 15px var(--neon-primary));
+  }
+}
+
+.bg-glass {
+  background: rgba(13, 17, 23, 0.6) !important;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }

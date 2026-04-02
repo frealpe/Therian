@@ -8,7 +8,8 @@ import useApp from '../hook/useApp'
 import navigation from '../_nav'
 import { AppSidebarNav } from './AppSidebarNav'
 
-import logo from '../assets/Logo.jpeg'
+import CIcon from '@coreui/icons-react'
+import { cilSatelite } from '@coreui/icons'
 
 const AppSidebar = ({ sidebarShow, setSidebarShow }) => {
     const { deleteSession } = useApp()
@@ -35,10 +36,17 @@ const AppSidebar = ({ sidebarShow, setSidebarShow }) => {
             visible={sidebarShow}
             onVisibleChange={(visible) => setSidebarShow(visible)}
             overlaid={window.innerWidth < 768}
+            style={{
+                backgroundColor: '#0d1117',
+                borderRight: '1px solid var(--glass-border) !important'
+            }}
         >
-            <CSidebarHeader className="border-bottom">
+            <CSidebarHeader className="border-bottom" style={{ borderColor: 'rgba(0, 242, 255, 0.1)' }}>
                 <CSidebarBrand className="d-none d-md-flex justify-content-center w-100">
-                    <img src={logo} alt="Logo" height={35} className="sidebar-brand-full" />
+                    <div className="d-flex align-items-center">
+                        <CIcon icon={cilSatelite} size="xl" className="text-info me-2" />
+                        <span style={{ color: 'var(--neon-primary)', fontWeight: '800', letterSpacing: '2px' }}>IOT_HUB</span>
+                    </div>
                 </CSidebarBrand>
             </CSidebarHeader>
             <AppSidebarNav

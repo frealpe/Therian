@@ -25,6 +25,12 @@
 *.swo
 .DS_Store
 
+# Expo and Mobile build artifacts
+.expo/
+*.apk
+android/
+ios/
+
 # Logs
 logs/
 *.log

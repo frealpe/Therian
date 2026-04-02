@@ -14,17 +14,18 @@ const DefaultLayout = () => {
     // }
 
     return (
-        <div className="wrapper d-flex flex-column min-vh-100">
+        <div className="wrapper d-flex flex-column min-vh-100 bg-dark text-light">
             <AppSidebar sidebarShow={sidebarShow} setSidebarShow={setSidebarShow} />
             <div
                 className="wrapper d-flex flex-column min-vh-100 transition-all"
                 style={{
                     marginLeft: sidebarShow && window.innerWidth >= 768 ? '256px' : '0',
-                    transition: 'margin-left 0.15s'
+                    transition: 'margin-left 0.15s',
+                    backgroundColor: '#0a0a0a'
                 }}
             >
                 <AppHeader sidebarShow={sidebarShow} setSidebarShow={setSidebarShow} />
-                <div className="body flex-grow-1">
+                <div className="body flex-grow-1 p-4">
                     <AppContent />
                 </div>
                 <AppFooter />
