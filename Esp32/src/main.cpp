@@ -110,6 +110,9 @@ void setup() {
     lv_mascot_create(lv_scr_act(), &mascot_sprite_sheet, 64, 64, 4);
   }
 
+  // Inicializar Smart Badge
+  lv_badge_init(lv_scr_act());
+
   log("[ INFO ] Setup completado");
 }
 // -------------------------------------------------------------------
@@ -118,6 +121,11 @@ void setup() {
 void loop() {
   /* LVGL Timer Handler */
   lv_timer_handler();
+
+  /* LVGL Badge Refresh */
+  if (badge_updated) {
+    lv_badge_refresh();
+  }
 
   /* WebSocket Cleanup */
   ws.cleanupClients();
