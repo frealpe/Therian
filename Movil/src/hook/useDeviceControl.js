@@ -4,7 +4,7 @@ import { useAppWebSocket } from './useAppWebSocket';
 
 export const useDeviceControl = (deviceId) => {
     const isOnline = useDeviceStore((state) => state.isConnected);
-    const { sendCommand } = useAppWebSocket('ws://<REPLACE_WITH_ESP32_IP>:81/ws'); // Should use config/env
+    const { sendCommand } = useAppWebSocket(null); // Uses the shared global WebSocket manager
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
 

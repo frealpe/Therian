@@ -90,7 +90,9 @@ const useBadge = () => {
         setSuccess(false);
 
         // Señalizar a la vista web (/mascota) que hay una transmisión en curso
-        try { localStorage.setItem('badge_uploading', '1'); } catch (_) {}
+        if (typeof window !== 'undefined' && window.localStorage) {
+            try { window.localStorage.setItem('badge_uploading', '1'); } catch (_) {}
+        }
 
         const url = `http://${ipAddress}/api/badge/image`;
 
@@ -129,7 +131,9 @@ const useBadge = () => {
         } finally {
             setLoading(false);
             // Limpiar flag de uploading en la web
-            try { localStorage.removeItem('badge_uploading'); } catch (_) {}
+            if (typeof window !== 'undefined' && window.localStorage) {
+                try { window.localStorage.removeItem('badge_uploading'); } catch (_) {}
+            }
         }
     }, [base64Data]);
 
