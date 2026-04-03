@@ -742,7 +742,7 @@ const HomeScreen = () => {
                 {/* ── Pet HUD Center ── */}
                 <View style={styles.petCard}>
                     <Image
-                        source={imageError ? XENON_IMG : { uri: `http://${ip}/api/badge/image?t=${imageTs}` }}
+                        source={imageError ? XENON_IMG : { uri: `http://${ip}/api/badge/serve?t=${imageTs}` }}
                         style={styles.petImage}
                         onError={() => setImageError(true)}
                     />
