@@ -77,11 +77,9 @@ class MissionControlService {
         this._active = true;
         
         // Load HomeBases and start Swarm Core
-        for (const mac of droneIds) {
-            const base = await HomeBase.findOne({ droneMac: mac });
-            if (base) {
-                swarmCore.updateDroneState(mac, { home: { x: base.x, y: base.y, z: base.z } });
-            }
+        const bases = await HomeBase.find({ droneMac: { $in: droneIds } });
+        for (const base of bases) {
+            swarmCore.updateDroneState(base.droneMac, { home: { x: base.x, y: base.y, z: base.z } });
         }
 
         await swarmCore.startMission(formattedWaypoints, droneIds);
